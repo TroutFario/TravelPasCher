@@ -5,15 +5,84 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/white"
     tools:context=".MainActivity">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Hello World!"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+
+
+    <!-- Zone scrollable -->
+    <androidx.compose.ui.platform.ComposeView
+        android:id="@+id/feedView"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@id/navBar"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent"/>
+
+    <!-- Navbar -->
+    <LinearLayout
+        android:id="@+id/navBar"
+        android:layout_width="0dp"
+        android:layout_height="60dp"
+        android:background="@color/white"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+        <ImageButton
+            android:id="@+id/homeButton"
+            android:layout_width="@dimen/nav_icon_size"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="#ffff"
+            android:contentDescription="@string/home_button"
+            app:srcCompat="@drawable/outline_home_24" />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="2"/>
+        <ImageButton
+            android:id="@+id/imageButton"
+            android:layout_width="@dimen/nav_icon_size"
+            android:layout_height="match_parent"
+            android:background="@android:color/transparent"
+            android:contentDescription="@string/add_image_button"
+            android:scaleType="centerInside"
+            app:srcCompat="@drawable/outline_insert_photo_24"/>
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="2"/>
+        <ImageButton
+            android:id="@+id/globeButton"
+            android:layout_width="@dimen/nav_icon_size"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="#ffff"
+            android:contentDescription="@string/add_image_button"
+            app:srcCompat="@drawable/outline_globe_24" />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="2"/>
+        <ImageButton
+            android:id="@+id/profileButton"
+            android:layout_width="@dimen/nav_icon_size"
+            android:layout_height="match_parent"
+            android:layout_weight="0"
+            android:background="#ffff"
+            android:contentDescription="@string/add_image_button"
+            app:srcCompat="@drawable/outline_account_circle_24" />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"/>
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

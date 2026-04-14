@@ -1,24 +1,44 @@
-package com.example.travelpascher;
+package com.example.travelpascher
 
-import android.os.Bundle;
+import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.ComposeView
+import com.example.travelpascher.ui.components.Post
 
-import androidx.activity.EdgeToEdge;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+class MainActivity : AppCompatActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-public class MainActivity extends AppCompatActivity {
+        val feedView = findViewById<ComposeView>(R.id.feedView)
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+        feedView.setContent {
+            FeedScreen()
+        }
+    }
+}
+
+@Composable
+fun FeedScreen() {
+    LazyColumn {
+        item {
+            Post(
+                username = "John",
+                location = "Paris",
+                time = "2h",
+                imageRes = R.drawable.chevoul
+            )
+        }
+
+        item {
+            Post(
+                username = "Alice",
+                location = "Lyon",
+                time = "5h",
+                imageRes = R.drawable.chevoul
+            )
+        }
     }
 }

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TravelPasCher</string>
+    <string name="home_button">Bouton Accueil</string>
+    <string name="add_image_button">Bouton Ajout d\'Image</string>
+    <string name="profile_picture">Photo de profil</string>
+    <string name="username">Pseudonyme</string>
+    <string name="post_image">Image du post</string>
+    <string name="middle_point">•</string>
+    <string name="datetime">Date et Heure</string>
+    <string name="location">Emplacement</string>
+    <string name="like">Liker</string>
+    <string name="comment">Commenter</string>
+    <string name="share">Partager</string>
+    <string name="save">Enregistrer</string>
+</resources>
