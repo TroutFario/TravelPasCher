@@ -13,4 +13,9 @@
     <string name="comment">Comment</string>
     <string name="share">Share</string>
     <string name="save">Save</string>
+    <string name="my_profile">My Profile</string>
+    <string name="globe">Globe</string>
+    <string name="profile">Profile</string>
+    <string name="story">Story</string>
+    <string name="time_ago">%s ago</string>
 </resources>
