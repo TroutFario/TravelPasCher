@@ -1,20 +1,17 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
 }
 
 android {
-    namespace = "com.example.travelpascher"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    namespace = "fr.troubidoo.travelpascher"
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.travelpascher"
         minSdk = 24
-        //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -36,13 +33,13 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
+}
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
-    }
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {
@@ -66,4 +63,7 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
 
     debugImplementation(libs.compose.ui.tooling)
+
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
 }

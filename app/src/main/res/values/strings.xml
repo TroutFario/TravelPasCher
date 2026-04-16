@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">TravelPasCher</string>
-    <string name="home_button">Home Button</string>
-    <string name="add_image_button">Add Image Button</string>
+    <string name="home_button">Home</string>
+    <string name="add_image_button">Add Image</string>
     <string name="profile_picture">Profile Picture</string>
     <string name="username">Username</string>
     <string name="post_image">Post Image</string>
@@ -12,4 +12,9 @@
     <string name="comment">Comment</string>
     <string name="share">Share</string>
     <string name="save">Save</string>
+    <string name="my_profile">My Profile</string>
+    <string name="globe">Globe</string>
+    <string name="profile">Profile</string>
+    <string name="story">Story</string>
+    <string name="time_ago">%s ago</string>
 </resources>

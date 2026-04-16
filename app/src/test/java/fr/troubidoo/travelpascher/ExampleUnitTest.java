@@ -1,4 +1,4 @@
-package com.example.travelpascher;
+package fr.troubidoo.travelpascher;
 
 import org.junit.Test;
 
