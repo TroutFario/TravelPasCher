@@ -84,31 +84,39 @@ fun MainScreenContent(content: @Composable () -> Unit) {
         },
         bottomBar = {
             BottomAppBar(
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .height(64.dp),
                 containerColor = MaterialTheme.colorScheme.background,
-                modifier = Modifier.height(60.dp),
-                contentColor = MaterialTheme.colorScheme.primary,
-                tonalElevation = 8.dp
+                tonalElevation = 8.dp,
+                contentPadding = PaddingValues(0.dp),
+                windowInsets = WindowInsets(0, 0, 0, 0)
             ) {
-                NavigationBarItem(
-                    selected = true,
-                    onClick = { /* TODO */ },
-                    icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* TODO */ },
-                    icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* TODO */ },
-                    icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = { /* TODO */ },
-                    icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
-                )
+                Row(
+                    modifier = Modifier.fillMaxHeight(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    NavigationBarItem(
+                        selected = true,
+                        onClick = { /* TODO */ },
+                        icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { /* TODO */ },
+                        icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { /* TODO */ },
+                        icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
+                    )
+                    NavigationBarItem(
+                        selected = false,
+                        onClick = { /* TODO */ },
+                        icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
+                    )
+                }
             }
         }
     ) { innerPadding ->

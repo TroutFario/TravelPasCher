@@ -1,6 +1,7 @@
 package fr.troubidoo.travelpascher.ui.components
 
 import android.content.Intent
+import android.text.format.DateUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -38,7 +39,7 @@ import fr.troubidoo.travelpascher.R
 fun Post(
     username: String,
     location: String,
-    time: String,
+    time: Long,
     imageRes: Int,
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
@@ -107,7 +108,11 @@ fun Post(
                             )
 
                             Text(
-                                text = time,
+                                text = DateUtils.getRelativeTimeSpanString(
+                                    time,
+                                    System.currentTimeMillis(),
+                                    DateUtils.MINUTE_IN_MILLIS)
+                                    .toString(),
                             )
                         }
                     }
@@ -170,6 +175,6 @@ fun Post(
 @Composable
 fun PostPreview() {
     Post(
-        username = "John Doe", location = "Paris", time = "2h", imageRes = R.drawable.chevoul
+        username = "John Doe", location = "Paris", time = 1758665200000, imageRes = R.drawable.chevoul
     )
 }

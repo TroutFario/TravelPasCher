@@ -6,7 +6,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -44,21 +43,15 @@ fun FeedScreenContent(stories: List<StoryWithUser>, posts: List<PostWithUser>) {
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // 1. Les stories deviennent le premier item du scroll
         item {
             StoriesSection(stories)
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
-            )
         }
 
-        // 2. Les posts suivent
         items(posts) { postWithUser ->
             Post(
                 username = postWithUser.user.username,
                 location = postWithUser.post.location,
-                time = stringResource(R.string.time_ago, "2h"),
+                time = postWithUser.post.createdAt,
                 imageRes = postWithUser.post.imageRes
             )
         }

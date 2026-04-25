@@ -26,18 +26,24 @@ class FeedViewModel(
             val currentPosts = postDao.getAllPostsWithUser().first()
             if (currentPosts.isEmpty()) {
                 // 1. Créer des utilisateurs
-                val user1 = UserEntity(1, "Traveler1", "test@test.com", "John", "Doe", System.currentTimeMillis())
+                val user1 = UserEntity(1, "Bernard", "test@test.com", "John", "Doe", System.currentTimeMillis())
                 val auth1 = UserAuthEntity(1, "pass", "salt", System.currentTimeMillis())
                 userDao.registerUser(user1, auth1)
 
                 val user2 = UserEntity(2, "Alice", "alice@test.com", "Alice", "Wonder", System.currentTimeMillis())
                 val auth2 = UserAuthEntity(2, "pass", "salt", System.currentTimeMillis())
                 userDao.registerUser(user2, auth2)
+
+                val user3 = UserEntity(2, "Minet", "minet@test.com", "Bernard", "Wonder", System.currentTimeMillis())
+                val auth3 = UserAuthEntity(2, "pass", "salt", System.currentTimeMillis())
+                userDao.registerUser(user3, auth3)
                 
                 // 2. Insérer des posts liés par ID (plus par String !)
                 postDao.insertPost(PostEntity(userId = 1, location = "Paris", imageRes = R.drawable.chevoul, createdAt = System.currentTimeMillis()))
-                postDao.insertPost(PostEntity(userId = 2, location = "Lyon", imageRes = R.drawable.chevoul, createdAt = System.currentTimeMillis() - 3600000))
-                
+                postDao.insertPost(PostEntity(userId = 2, location = "Montarnaud", imageRes = R.drawable.chevoul, createdAt = System.currentTimeMillis() - 3600000))
+                postDao.insertPost(PostEntity(userId = 1, location = "Montpellier", imageRes = R.drawable.chevoul, createdAt = System.currentTimeMillis() - 3600000))
+                postDao.insertPost(PostEntity(userId = 3, location = "Saint-Paul-et-Valemalle", imageRes = R.drawable.chevoul, createdAt = System.currentTimeMillis() - 3600000))
+
                 // 3. Insérer des stories liées par ID
                 if (storyDao.getCount() == 0) {
                     storyDao.insertStory(StoryEntity(userId = 1, imageRes = R.drawable.chevoul, creationDate = System.currentTimeMillis()))
