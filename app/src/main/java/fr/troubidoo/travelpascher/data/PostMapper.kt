@@ -6,7 +6,7 @@ fun PostEntity.toPost(username: String): Post {
     return Post(
         username = username,
         location = location,
-        imageRes = imageRes,
+        imageUrl = imageUrl,
         createdAt = createdAt
     )
 }
@@ -16,7 +16,7 @@ fun Post.toEntity(userId: Int): PostEntity {
         id = 0,
         userId = userId,
         location = location,
-        imageRes = imageRes,
+        imageUrl = imageUrl,
         createdAt = createdAt
     )
 }

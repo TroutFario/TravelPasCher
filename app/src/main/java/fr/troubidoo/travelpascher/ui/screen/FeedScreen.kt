@@ -22,23 +22,22 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.troubidoo.travelpascher.R
-import fr.troubidoo.travelpascher.data.PostEntity
-import fr.troubidoo.travelpascher.data.PostWithUser
-import fr.troubidoo.travelpascher.data.StoryEntity
-import fr.troubidoo.travelpascher.data.StoryWithUser
-import fr.troubidoo.travelpascher.data.UserEntity
 import fr.troubidoo.travelpascher.ui.components.Post
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
+import fr.troubidoo.travelpascher.viewmodel.UiPost
+import fr.troubidoo.travelpascher.viewmodel.UiStory
 
 @Composable
 fun FeedScreen(viewModel: FeedViewModel) {
-    val posts = viewModel.posts.collectAsState(initial = emptyList()).value
-    val stories = viewModel.stories.collectAsState(initial = emptyList()).value
+    // On collecte les StateFlow de Firebase
+    val posts = viewModel.posts.collectAsState().value
+    val stories = viewModel.stories.collectAsState().value
+    
     FeedScreenContent(stories = stories, posts = posts)
 }
 
 @Composable
-fun FeedScreenContent(stories: List<StoryWithUser>, posts: List<PostWithUser>) {
+fun FeedScreenContent(stories: List<UiStory>, posts: List<UiPost>) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 16.dp)
@@ -47,19 +46,19 @@ fun FeedScreenContent(stories: List<StoryWithUser>, posts: List<PostWithUser>) {
             StoriesSection(stories)
         }
 
-        items(posts) { postWithUser ->
+        items(posts) { post ->
             Post(
-                username = postWithUser.user.username,
-                location = postWithUser.post.location,
-                time = postWithUser.post.createdAt,
-                imageRes = postWithUser.post.imageRes
+                username = post.username,
+                location = post.location,
+                time = post.createdAt,
+                imageUrl = post.imageUrl
             )
         }
     }
 }
 
 @Composable
-fun StoriesSection(stories: List<StoryWithUser>) {
+fun StoriesSection(stories: List<UiStory>) {
     LazyRow(
         modifier = Modifier
             .fillMaxWidth()
@@ -67,8 +66,8 @@ fun StoriesSection(stories: List<StoryWithUser>) {
         contentPadding = PaddingValues(horizontal = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(stories) { storyWithUser ->
-            StoryItem(username = storyWithUser.user.username)
+        items(stories) { story ->
+            StoryItem(username = story.username)
         }
     }
 }
@@ -108,16 +107,14 @@ fun StoryItem(username: String) {
 @Preview(showBackground = true)
 @Composable
 fun FeedScreenPreview() {
-    val dummyUser = UserEntity(1, "Traveler1", "", "", "", 0)
-
     val sampleStories = listOf(
-        StoryWithUser(StoryEntity(0, 1, R.drawable.chevoul, 0), dummyUser),
-        StoryWithUser(StoryEntity(1, 1, R.drawable.chevoul, 0), dummyUser),
+        UiStory(1, "Traveler1", ""),
+        UiStory(2, "Alice", "")
     )
 
     val samplePosts = listOf(
-        PostWithUser(PostEntity(0, 1, "Paris", R.drawable.chevoul, 0), dummyUser),
-        PostWithUser(PostEntity(1, 1, "Lyon", R.drawable.chevoul, 0), dummyUser)
+        UiPost(1, "Traveler1", "Paris", "", System.currentTimeMillis()),
+        UiPost(2, "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
     )
 
     FeedScreenContent(posts = samplePosts, stories = sampleStories)

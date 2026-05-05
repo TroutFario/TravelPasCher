@@ -8,10 +8,10 @@
             <InsightsFilterSettings>
               <option name="connection">
                 <ConnectionSetting>
-                  <option name="appId" value="PLACEHOLDER" />
-                  <option name="mobileSdkAppId" value="" />
-                  <option name="projectId" value="" />
-                  <option name="projectNumber" value="" />
+                  <option name="appId" value="fr.troubidoo.travelpascher" />
+                  <option name="mobileSdkAppId" value="1:880256584692:android:5ff73091472ef483e947a1" />
+                  <option name="projectId" value="device-streaming-efa16327" />
+                  <option name="projectNumber" value="880256584692" />
                 </ConnectionSetting>
               </option>
               <option name="signal" value="SIGNAL_UNSPECIFIED" />

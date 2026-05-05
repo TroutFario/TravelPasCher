@@ -17,8 +17,8 @@ import androidx.room.PrimaryKey
 )
 data class PostEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val userId: Int, // Lien vers l'utilisateur
+    val userId: Int,
     val location: String,
-    val imageRes: Int,
+    val imageUrl: String,
     val createdAt: Long
 )

@@ -18,6 +18,6 @@ import androidx.room.PrimaryKey
 data class StoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val userId: Int,
-    val imageRes: Int,
+    val imageUrl: String,
     val creationDate: Long
 )

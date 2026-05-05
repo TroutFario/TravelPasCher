@@ -2,8 +2,8 @@ package fr.troubidoo.travelpascher.ui.components
 
 import android.content.Intent
 import android.text.format.DateUtils
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,6 +33,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
+import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
 
 @Composable
@@ -40,7 +41,7 @@ fun Post(
     username: String,
     location: String,
     time: Long,
-    imageRes: Int,
+    imageUrl: String,
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
@@ -49,7 +50,7 @@ fun Post(
     val context = LocalContext.current
     ProvideTextStyle(
         value = TextStyle(
-            color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp
+            color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp
         )
     ) {
         Card(
@@ -91,7 +92,8 @@ fun Post(
                         )
 
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
                                 text = location,
@@ -119,13 +121,15 @@ fun Post(
                 }
 
                 // ---------------- IMAGE ----------------
-                Image(
-                    painter = painterResource(imageRes),
+                AsyncImage(
+                    model = imageUrl,
                     contentDescription = stringResource(R.string.post_image),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(250.dp),
-                    contentScale = ContentScale.Crop
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(R.drawable.chevoul), // Utilise chevoul en placeholder pour l'instant
+                    error = painterResource(R.drawable.chevoul)
                 )
 
                 // ---------------- ACTION BAR ----------------
@@ -175,6 +179,6 @@ fun Post(
 @Composable
 fun PostPreview() {
     Post(
-        username = "John Doe", location = "Paris", time = 1758665200000, imageRes = R.drawable.chevoul
+        username = "John Doe", location = "Paris", time = 1758665200000, imageUrl = "android.resource://fr.troubidoo.travelpascher/${R.drawable.chevoul}"
     )
 }

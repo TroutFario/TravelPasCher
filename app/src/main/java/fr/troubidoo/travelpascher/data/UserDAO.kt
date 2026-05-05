@@ -25,6 +25,9 @@ interface UserDAO {
     @Query("SELECT * FROM users WHERE id = :userId")
     fun getUserById(userId: Int): Flow<UserEntity?>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM users WHERE id = :userId)")
+    suspend fun userExists(userId: Int): Boolean
+
     @Query("SELECT * FROM user_auth WHERE userId = :userId")
     suspend fun getAuthByUserId(userId: Int): UserAuthEntity?
 

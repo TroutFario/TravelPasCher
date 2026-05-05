@@ -4,7 +4,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -14,22 +14,39 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import fr.troubidoo.travelpascher.R
-import fr.troubidoo.travelpascher.data.*
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
+import fr.troubidoo.travelpascher.viewmodel.UiPost
+import fr.troubidoo.travelpascher.viewmodel.UiStory
 
 @Composable
 fun MainScreen(viewModel: FeedViewModel) {
+    var selectedTab by remember { mutableIntStateOf(0) }
+
     MainScreenContent(
+        selectedTab = selectedTab,
+        onTabSelected = { selectedTab = it },
         content = {
-            FeedScreen(viewModel = viewModel)
+            when (selectedTab) {
+                0 -> FeedScreen(viewModel = viewModel)
+                3 -> AuthScreen()
+                else -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Écran en cours de développement")
+                    }
+                }
+            }
         }
     )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreenContent(content: @Composable () -> Unit) {
+fun MainScreenContent(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    content: @Composable () -> Unit
+) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -97,23 +114,23 @@ fun MainScreenContent(content: @Composable () -> Unit) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     NavigationBarItem(
-                        selected = true,
-                        onClick = { /* TODO */ },
+                        selected = selectedTab == 0,
+                        onClick = { onTabSelected(0) },
                         icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
                     )
                     NavigationBarItem(
-                        selected = false,
-                        onClick = { /* TODO */ },
+                        selected = selectedTab == 1,
+                        onClick = { onTabSelected(1) },
                         icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
                     )
                     NavigationBarItem(
-                        selected = false,
-                        onClick = { /* TODO */ },
+                        selected = selectedTab == 2,
+                        onClick = { onTabSelected(2) },
                         icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
                     )
                     NavigationBarItem(
-                        selected = false,
-                        onClick = { /* TODO */ },
+                        selected = selectedTab == 3,
+                        onClick = { onTabSelected(3) },
                         icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
                     )
                 }
@@ -129,21 +146,30 @@ fun MainScreenContent(content: @Composable () -> Unit) {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun MainScreenPreview() {
-    val dummyUser = UserEntity(1, "Traveler1", "", "", "", 0)
-    
     val sampleStories = listOf(
-        StoryWithUser(StoryEntity(0, 1, R.drawable.chevoul, 0), dummyUser),
-        StoryWithUser(StoryEntity(1, 1, R.drawable.chevoul, 0), dummyUser),
+        UiStory(1, "Traveler1", ""),
+        UiStory(2, "Alice", "")
     )
 
     val samplePosts = listOf(
-        PostWithUser(PostEntity(0, 1, "Paris", R.drawable.chevoul, 0), dummyUser),
-        PostWithUser(PostEntity(1, 1, "Lyon", R.drawable.chevoul, 0), dummyUser)
+        UiPost(1, "Traveler1", "Paris", "", System.currentTimeMillis()),
+        UiPost(2, "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
     )
 
+    var selectedTab by remember { mutableIntStateOf(0) }
+
     TravelPasCherTheme {
-        MainScreenContent {
-            FeedScreenContent(posts = samplePosts, stories = sampleStories)
+        MainScreenContent(
+            selectedTab = selectedTab,
+            onTabSelected = { selectedTab = it }
+        ) {
+            when (selectedTab) {
+                0 -> FeedScreenContent(posts = samplePosts, stories = sampleStories)
+                3 -> AuthScreen()
+                else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Écran $selectedTab")
+                }
+            }
         }
     }
 }
