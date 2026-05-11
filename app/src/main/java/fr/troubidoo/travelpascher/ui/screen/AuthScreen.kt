@@ -32,7 +32,11 @@ fun AuthScreen(viewModel: FeedViewModel? = null) {
                 onLoginClick = { currentStep = AuthStep.LOGIN },
                 onSignupClick = { currentStep = AuthStep.SIGNUP }
             )
-            AuthStep.LOGIN -> LoginContent(onBack = { currentStep = AuthStep.CHOICE })
+            AuthStep.LOGIN -> LoginContent(
+                viewModel = viewModel,
+                onBack = { currentStep = AuthStep.CHOICE },
+                onSuccess = { /* La redirection est gérée par MainScreen via le StateFlow */ }
+            )
             AuthStep.SIGNUP -> SignupContent(
                 viewModel = viewModel,
                 onBack = { currentStep = AuthStep.CHOICE },
@@ -75,18 +79,25 @@ fun ChoiceContent(onLoginClick: () -> Unit, onSignupClick: () -> Unit) {
 }
 
 @Composable
-fun LoginContent(onBack: () -> Unit) {
+fun LoginContent(
+    viewModel: FeedViewModel? = null,
+    onBack: () -> Unit,
+    onSuccess: () -> Unit
+) {
     Text(text = "Connexion", style = MaterialTheme.typography.headlineSmall)
     Spacer(modifier = Modifier.height(24.dp))
     
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     TextField(
         value = email,
         onValueChange = { email = it },
         label = { Text("Email") },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading
     )
     Spacer(modifier = Modifier.height(8.dp))
     TextField(
@@ -94,13 +105,44 @@ fun LoginContent(onBack: () -> Unit) {
         onValueChange = { password = it },
         label = { Text("Mot de passe") },
         visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading
     )
-    Spacer(modifier = Modifier.height(24.dp))
-    Button(onClick = { /* TODO */ }, modifier = Modifier.fillMaxWidth()) {
-        Text("Se connecter")
+
+    if (errorMessage != null) {
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(text = errorMessage!!, color = MaterialTheme.colorScheme.error)
     }
-    TextButton(onClick = onBack) {
+
+    Spacer(modifier = Modifier.height(24.dp))
+    Button(
+        onClick = {
+            if (viewModel != null && email.isNotBlank() && password.isNotBlank()) {
+                isLoading = true
+                viewModel.loginUser(
+                    email = email,
+                    password = password,
+                    onSuccess = {
+                        isLoading = false
+                        onSuccess()
+                    },
+                    onError = {
+                        isLoading = false
+                        errorMessage = it
+                    }
+                )
+            }
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !isLoading
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+        } else {
+            Text("Se connecter")
+        }
+    }
+    TextButton(onClick = onBack, enabled = !isLoading) {
         Text("Retour")
     }
 }
@@ -168,15 +210,12 @@ fun SignupContent(
     
     Button(
         onClick = {
-            if (viewModel != null && username.isNotBlank() && email.isNotBlank()) {
+            if (viewModel != null && username.isNotBlank() && email.isNotBlank() && password.isNotBlank()) {
                 isLoading = true
-                // On génère un ID temporaire pour le test (ou on laisse Firebase le faire)
-                // Ici, on utilise un hashCode pour l'exemple.
-                val id = (username + email).hashCode()
                 viewModel.registerUser(
-                    id = id,
                     username = username,
                     email = email,
+                    password = password,
                     firstName = firstName,
                     lastName = lastName,
                     onSuccess = {
@@ -188,6 +227,8 @@ fun SignupContent(
                         errorMessage = it
                     }
                 )
+            } else if (password.isBlank()) {
+                errorMessage = "Le mot de passe ne peut pas être vide"
             }
         },
         modifier = Modifier.fillMaxWidth(),

@@ -12,6 +12,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.room.Room
+import com.google.firebase.Firebase
+import com.google.firebase.appcheck.appCheck
+import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
+import com.google.firebase.initialize
 import fr.troubidoo.travelpascher.data.*
 import fr.troubidoo.travelpascher.ui.screen.AuthScreen
 import fr.troubidoo.travelpascher.ui.screen.FeedScreenContent
@@ -25,6 +29,16 @@ import fr.troubidoo.travelpascher.viewmodel.UiStory
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialisation de Firebase et App Check Debug
+        // Ce token s'affichera dans le Logcat au démarrage de l'app (filtrez sur "AppCheckDebug")
+        Firebase.initialize(this)
+        Firebase.appCheck.installAppCheckProviderFactory(
+            DebugAppCheckProviderFactory.getInstance()
+        )
+
+        android.util.Log.d("TravelPasCher", "App Check Debug Provider installé.")
+
         enableEdgeToEdge()
 
         // Initialisation de la BDD locale (Room)

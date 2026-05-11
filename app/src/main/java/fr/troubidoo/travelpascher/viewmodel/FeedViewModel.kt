@@ -3,6 +3,7 @@ package fr.troubidoo.travelpascher.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
+import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import fr.troubidoo.travelpascher.data.*
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,13 +26,13 @@ data class UiStory(
     val imageUrl: String
 )
 
-class FeedViewModel(
-    private val postDao: PostDAO,
-    private val storyDao: StoryDAO,
-    private val userDao: UserDAO
-) : ViewModel() {
+class FeedViewModel() : ViewModel() {
 
     private val db = Firebase.firestore
+    private val auth = Firebase.auth
+
+    private val _currentUser = MutableStateFlow(auth.currentUser)
+    val currentUser = _currentUser.asStateFlow()
 
     // On observe directement Firebase via des StateFlow
     private val _posts = MutableStateFlow<List<UiPost>>(emptyList())
@@ -82,51 +83,101 @@ class FeedViewModel(
             }
     }
 
-    fun uploadPost(userId: Int, username: String, location: String) {
+    fun uploadPost(
+        location: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val user = auth.currentUser
+        if (user == null) {
+            onError("Vous devez être connecté pour publier")
+            return
+        }
+
         viewModelScope.launch {
             val postData = hashMapOf(
-                "userId" to userId,
-                "username" to username,
+                "userId" to user.uid,
+                "username" to (user.displayName ?: user.email ?: "Anonyme"),
                 "location" to location,
                 "imageUrl" to "",
                 "createdAt" to System.currentTimeMillis()
             )
             try {
                 db.collection("posts").add(postData).await()
+                onSuccess()
             } catch (e: Exception) {
                 e.printStackTrace()
+                onError(e.message ?: "Erreur inconnue lors de l'envoi")
             }
         }
     }
 
     /**
-     * Crée un utilisateur dans la collection "users" de Firestore.
+     * Connecte un utilisateur avec Firebase Auth.
+     */
+    fun loginUser(
+        email: String,
+        password: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val authResult = auth.signInWithEmailAndPassword(email, password).await()
+                _currentUser.value = authResult.user
+                onSuccess()
+            } catch (e: Exception) {
+                android.util.Log.e("AUTH_ERROR", "Login failed for email: $email", e)
+                onError(e.message ?: "Erreur de connexion")
+            }
+        }
+    }
+
+    /**
+     * Crée un utilisateur avec Firebase Auth puis stocke son profil dans Firestore.
      */
     fun registerUser(
-        id: Int,
         username: String,
         email: String,
+        password: String,
         firstName: String,
         lastName: String,
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
         viewModelScope.launch {
-            val userData = hashMapOf(
-                "id" to id,
-                "username" to username,
-                "email" to email,
-                "firstName" to firstName,
-                "lastName" to lastName,
-                "creationDate" to System.currentTimeMillis()
-            )
             try {
-                // On utilise l'ID comme nom de document pour plus de clarté
-                db.collection("users").document(id.toString()).set(userData).await()
-                onSuccess()
+                // 1. Création du compte dans Firebase Auth
+                val authResult = auth.createUserWithEmailAndPassword(email, password).await()
+                val firebaseUser = authResult.user
+
+                if (firebaseUser != null) {
+                    // 2. Création du profil utilisateur dans Firestore
+                    val userData = hashMapOf(
+                        "id" to firebaseUser.uid,
+                        "username" to username,
+                        "email" to email,
+                        "firstName" to firstName,
+                        "lastName" to lastName,
+                        "creationDate" to System.currentTimeMillis()
+                    )
+                    db.collection("users").document(firebaseUser.uid).set(userData).await()
+                    _currentUser.value = firebaseUser
+                    onSuccess()
+                } else {
+                    onError("Échec de la création de l'utilisateur")
+                }
             } catch (e: Exception) {
                 onError(e.message ?: "Erreur inconnue lors de l'inscription")
             }
         }
+    }
+
+    /**
+     * Déconnecte l'utilisateur.
+     */
+    fun logout() {
+        auth.signOut()
+        _currentUser.value = null
     }
 }

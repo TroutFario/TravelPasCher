@@ -22,6 +22,7 @@ import fr.troubidoo.travelpascher.viewmodel.UiStory
 @Composable
 fun MainScreen(viewModel: FeedViewModel) {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val currentUser by viewModel.currentUser.collectAsState()
 
     MainScreenContent(
         selectedTab = selectedTab,
@@ -29,7 +30,17 @@ fun MainScreen(viewModel: FeedViewModel) {
         content = {
             when (selectedTab) {
                 0 -> FeedScreen(viewModel = viewModel)
-                3 -> AuthScreen()
+                1 -> CreatePostScreen(
+                    viewModel = viewModel,
+                    onPostSuccess = { selectedTab = 0 }
+                )
+                3 -> {
+                    if (currentUser != null) {
+                        ProfileScreen(viewModel = viewModel)
+                    } else {
+                        AuthScreen(viewModel = viewModel)
+                    }
+                }
                 else -> {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text("Écran en cours de développement")
@@ -38,6 +49,23 @@ fun MainScreen(viewModel: FeedViewModel) {
             }
         }
     )
+}
+
+@Composable
+fun ProfileScreen(viewModel: FeedViewModel) {
+    val currentUser by viewModel.currentUser.collectAsState()
+    
+    Column(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("Connecté en tant que : ${currentUser?.email ?: "Inconnu"}")
+        Spacer(modifier = Modifier.height(16.dp))
+        Button(onClick = { viewModel.logout() }) {
+            Text("Se déconnecter")
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -165,6 +193,9 @@ fun MainScreenPreview() {
         ) {
             when (selectedTab) {
                 0 -> FeedScreenContent(posts = samplePosts, stories = sampleStories)
+                1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Écran de création de post")
+                }
                 3 -> AuthScreen()
                 else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("Écran $selectedTab")
