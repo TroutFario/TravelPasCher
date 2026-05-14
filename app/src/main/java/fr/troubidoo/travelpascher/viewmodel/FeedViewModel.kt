@@ -15,7 +15,7 @@ import kotlinx.coroutines.tasks.await
 
 // Modèles de données pour l'UI (Directement depuis Firebase)
 data class UiPost(
-    val userId: Int,
+    val userId: String,
     val username: String,
     val location: String,
     val imageUrl: String,
@@ -23,7 +23,7 @@ data class UiPost(
 )
 
 data class UiStory(
-    val userId: Int,
+    val userId: String,
     val username: String,
     val imageUrl: String
 )
@@ -60,7 +60,7 @@ class FeedViewModel(
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
                         UiPost(
-                            userId = doc.getLong("userId")?.toInt() ?: 0,
+                            userId = doc.get("userId")?.toString() ?: "",
                             username = doc.getString("username") ?: "Anonyme",
                             location = doc.getString("location") ?: "",
                             imageUrl = doc.getString("imageUrl") ?: "",
@@ -79,7 +79,7 @@ class FeedViewModel(
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
                         UiStory(
-                            userId = doc.getLong("userId")?.toInt() ?: 0,
+                            userId = doc.get("userId")?.toString() ?: "",
                             username = doc.getString("username") ?: "Anonyme",
                             imageUrl = doc.getString("imageUrl") ?: ""
                         )

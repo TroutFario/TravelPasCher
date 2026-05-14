@@ -108,13 +108,13 @@ fun StoryItem(username: String) {
 @Composable
 fun FeedScreenPreview() {
     val sampleStories = listOf(
-        UiStory(1, "Traveler1", ""),
-        UiStory(2, "Alice", "")
+        UiStory("1", "Traveler1", ""),
+        UiStory("2", "Alice", "")
     )
 
     val samplePosts = listOf(
-        UiPost(1, "Traveler1", "Paris", "", System.currentTimeMillis()),
-        UiPost(2, "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
+        UiPost("1", "Traveler1", "Paris", "", System.currentTimeMillis()),
+        UiPost("2", "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
     )
 
     FeedScreenContent(posts = samplePosts, stories = sampleStories)
