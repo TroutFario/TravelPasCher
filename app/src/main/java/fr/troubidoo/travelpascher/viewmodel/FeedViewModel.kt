@@ -3,6 +3,8 @@ package fr.troubidoo.travelpascher.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import fr.troubidoo.travelpascher.data.*
@@ -26,7 +28,11 @@ data class UiStory(
     val imageUrl: String
 )
 
-class FeedViewModel() : ViewModel() {
+class FeedViewModel(
+    private val postDao: PostDAO,
+    private val storyDao: StoryDAO,
+    private val userDao: UserDAO
+) : ViewModel() {
 
     private val db = Firebase.firestore
     private val auth = Firebase.auth
@@ -128,7 +134,12 @@ class FeedViewModel() : ViewModel() {
                 onSuccess()
             } catch (e: Exception) {
                 android.util.Log.e("AUTH_ERROR", "Login failed for email: $email", e)
-                onError(e.message ?: "Erreur de connexion")
+                val message = when (e) {
+                    is FirebaseAuthInvalidCredentialsException -> "Identifiants invalides (email ou mot de passe incorrect)."
+                    is FirebaseAuthInvalidUserException -> "Utilisateur non trouvé."
+                    else -> e.message ?: "Erreur de connexion"
+                }
+                onError(message)
             }
         }
     }

@@ -117,10 +117,11 @@ fun LoginContent(
     Spacer(modifier = Modifier.height(24.dp))
     Button(
         onClick = {
-            if (viewModel != null && email.isNotBlank() && password.isNotBlank()) {
+            val trimmedEmail = email.trim()
+            if (viewModel != null && trimmedEmail.isNotBlank() && password.isNotBlank()) {
                 isLoading = true
                 viewModel.loginUser(
-                    email = email,
+                    email = trimmedEmail,
                     password = password,
                     onSuccess = {
                         isLoading = false
@@ -210,14 +211,15 @@ fun SignupContent(
     
     Button(
         onClick = {
-            if (viewModel != null && username.isNotBlank() && email.isNotBlank() && password.isNotBlank()) {
+            val trimmedEmail = email.trim()
+            if (viewModel != null && username.isNotBlank() && trimmedEmail.isNotBlank() && password.isNotBlank()) {
                 isLoading = true
                 viewModel.registerUser(
-                    username = username,
-                    email = email,
+                    username = username.trim(),
+                    email = trimmedEmail,
                     password = password,
-                    firstName = firstName,
-                    lastName = lastName,
+                    firstName = firstName.trim(),
+                    lastName = lastName.trim(),
                     onSuccess = {
                         isLoading = false
                         onSuccess()

@@ -19,17 +19,12 @@ fun CreatePostScreen(viewModel: FeedViewModel, onPostSuccess: () -> Unit) {
         isLoading = isLoading,
         errorMessage = errorMessage,
         onPostClick = { location ->
-            isLoading = true
-            errorMessage = null
             viewModel.uploadPost(
                 location = location,
                 onSuccess = {
-                    isLoading = false
                     onPostSuccess()
                 },
                 onError = {
-                    isLoading = false
-                    errorMessage = it
                 }
             )
         }
