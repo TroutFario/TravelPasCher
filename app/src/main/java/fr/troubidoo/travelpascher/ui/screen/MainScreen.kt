@@ -55,14 +55,22 @@ fun MainScreen(viewModel: FeedViewModel) {
 fun ProfileScreen(viewModel: FeedViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
     
+    ProfileContent(
+        email = currentUser?.email,
+        onLogout = { viewModel.logout() }
+    )
+}
+
+@Composable
+fun ProfileContent(email: String?, onLogout: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text("Connecté en tant que : ${currentUser?.email ?: "Inconnu"}")
+        Text("Connecté en tant que : ${email ?: "Inconnu"}")
         Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = { viewModel.logout() }) {
+        Button(onClick = onLogout) {
             Text("Se déconnecter")
         }
     }
@@ -171,36 +179,53 @@ fun MainScreenContent(
     }
 }
 
-@Preview(showBackground = true, showSystemUi = true)
+@Preview(showBackground = true, showSystemUi = true, name = "Flux d'actualité")
 @Composable
-fun MainScreenPreview() {
+fun MainScreenFeedPreview() {
     val sampleStories = listOf(
         UiStory("1", "Traveler1", ""),
         UiStory("2", "Alice", "")
     )
-
     val samplePosts = listOf(
         UiPost("1", "Traveler1", "Paris", "", System.currentTimeMillis()),
         UiPost("2", "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
     )
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-
     TravelPasCherTheme {
         MainScreenContent(
-            selectedTab = selectedTab,
-            onTabSelected = { selectedTab = it }
+            selectedTab = 0,
+            onTabSelected = {}
         ) {
-            when (selectedTab) {
-                0 -> FeedScreenContent(posts = samplePosts, stories = sampleStories)
-                1 -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Écran de création de post")
-                }
-                3 -> AuthScreen()
-                else -> Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("Écran $selectedTab")
-                }
+            FeedScreenContent(posts = samplePosts, stories = sampleStories)
+        }
+    }
+}
+
+@Preview(showBackground = true, showSystemUi = true, name = "Création de Post")
+@Composable
+fun MainScreenCreatePostPreview() {
+    TravelPasCherTheme {
+        MainScreenContent(
+            selectedTab = 1,
+            onTabSelected = {}
+        ) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("Écran de création de post")
             }
         }
     }
 }
+
+@Preview(showBackground = true, showSystemUi = true, name = "Profil")
+@Composable
+fun MainScreenProfilePreview() {
+    TravelPasCherTheme {
+        MainScreenContent(
+            selectedTab = 3,
+            onTabSelected = {}
+        ) {
+            ProfileContent(email = "test@example.com", onLogout = {})
+        }
+    }
+}
+
