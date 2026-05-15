@@ -1,7 +1,11 @@
 package fr.troubidoo.travelpascher.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -9,10 +13,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
@@ -54,25 +61,146 @@ fun MainScreen(viewModel: FeedViewModel) {
 @Composable
 fun ProfileScreen(viewModel: FeedViewModel) {
     val currentUser by viewModel.currentUser.collectAsState()
+    val allPosts by viewModel.posts.collectAsState()
+    
+    val userPosts = remember(allPosts, currentUser) {
+        allPosts.filter { it.userId == currentUser?.uid }
+    }
     
     ProfileContent(
+        username = currentUser?.displayName ?: currentUser?.email?.split("@")?.firstOrNull() ?: "Voyageur",
         email = currentUser?.email,
+        posts = userPosts,
         onLogout = { viewModel.logout() }
     )
 }
 
 @Composable
-fun ProfileContent(email: String?, onLogout: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text("Connecté en tant que : ${email ?: "Inconnu"}")
-        Spacer(modifier = Modifier.height(16.dp))
-        Button(onClick = onLogout) {
-            Text("Se déconnecter")
+fun ProfileContent(
+    username: String,
+    email: String?,
+    posts: List<UiPost>,
+    onLogout: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        ProfileHeader(username, email, posts.size, onLogout)
+        
+        HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
+        
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(3),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(1.dp),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
+            verticalArrangement = Arrangement.spacedBy(1.dp)
+        ) {
+            items(posts) { post ->
+                Box(
+                    modifier = Modifier
+                        .aspectRatio(1f)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    if (post.imageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = post.imageUrl,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(id = R.drawable.outline_add_photo_alternate_24),
+                            contentDescription = null,
+                            modifier = Modifier.align(Alignment.Center).size(32.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
         }
+    }
+}
+
+@Composable
+fun ProfileHeader(
+    username: String,
+    email: String?,
+    postCount: Int,
+    onLogout: () -> Unit
+) {
+    Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.outline_account_circle_24),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize().padding(8.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                ProfileStat(number = postCount.toString(), label = "Posts")
+                ProfileStat(number = "124", label = "Abonnés")
+                ProfileStat(number = "89", label = "Suivis")
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(12.dp))
+        
+        Text(
+            text = username,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Explorateur passionné 🌍 | À la recherche des meilleurs bons plans voyage !",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        if (email != null) {
+            Text(
+                text = email,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { /* TODO */ },
+                modifier = Modifier.weight(1f),
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text("Modifier le profil")
+            }
+            OutlinedButton(
+                onClick = onLogout,
+                shape = MaterialTheme.shapes.small
+            ) {
+                Text("Déconnexion")
+            }
+        }
+    }
+}
+
+@Composable
+fun ProfileStat(number: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = number, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(text = label, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -219,13 +347,22 @@ fun MainScreenCreatePostPreview() {
 @Preview(showBackground = true, showSystemUi = true, name = "Profil")
 @Composable
 fun MainScreenProfilePreview() {
+    val samplePosts = listOf(
+        UiPost("1", "User", "Paris", "", System.currentTimeMillis()),
+        UiPost("1", "User", "London", "", System.currentTimeMillis()),
+        UiPost("1", "User", "Tokyo", "", System.currentTimeMillis())
+    )
     TravelPasCherTheme {
         MainScreenContent(
             selectedTab = 3,
             onTabSelected = {}
         ) {
-            ProfileContent(email = "test@example.com", onLogout = {})
+            ProfileContent(
+                username = "Traveler_Expert",
+                email = "test@example.com",
+                posts = samplePosts,
+                onLogout = {}
+            )
         }
     }
 }
-
