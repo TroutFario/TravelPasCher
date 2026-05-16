@@ -2,11 +2,14 @@ package fr.troubidoo.travelpascher.ui.components
 
 import android.content.Intent
 import android.text.format.DateUtils
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -14,8 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ImageNotSupported
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.net.toUri
 import coil3.compose.AsyncImage
+import coil3.compose.SubcomposeAsyncImage
 import fr.troubidoo.travelpascher.R
 
 @Composable
@@ -135,15 +142,42 @@ fun Post(
                 }
 
                 // ---------------- IMAGE ----------------
-                AsyncImage(
+                SubcomposeAsyncImage(
                     model = imageUrl,
                     contentDescription = stringResource(R.string.post_image),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(250.dp),
                     contentScale = ContentScale.Crop,
-                    placeholder = painterResource(R.drawable.chevoul), // Utilise chevoul en placeholder pour l'instant
-                    error = painterResource(R.drawable.chevoul)
+                    loading = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(40.dp),
+                                color = MaterialTheme.colorScheme.primary,
+                                strokeWidth = 2.dp
+                            )
+                        }
+                    },
+                    error = {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ImageNotSupported,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
                 )
 
                 // ---------------- ACTION BAR ----------------
@@ -193,6 +227,9 @@ fun Post(
 @Composable
 fun PostPreview() {
     Post(
-        username = "John Doe", location = "Paris", time = 1758665200000, imageUrl = "android.resource://fr.troubidoo.travelpascher/${R.drawable.chevoul}"
+        username = "John Doe",
+        location = "Paris",
+        time = 1758665200000,
+        imageUrl = "https://example.com/image.jpg"
     )
 }

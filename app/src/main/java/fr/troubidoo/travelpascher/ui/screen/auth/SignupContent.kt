@@ -17,7 +17,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
@@ -31,10 +30,10 @@ import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 fun SignupContent(
     viewModel: FeedViewModel? = null,
     onBack: () -> Unit,
-    onSuccess: () -> Unit
+    onSuccess: () -> Unit,
 ) {
-    val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val emptyPasswordError = stringResource(R.string.error_empty_password)
     
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -142,7 +141,7 @@ fun SignupContent(
         Button(
             onClick = {
                 val trimmedEmail = email.trim()
-                if (viewModel != null && username.isNotBlank() && trimmedEmail.isNotBlank() && password.isNotBlank()) {
+                if (viewModel != null && (username.isNotBlank() && trimmedEmail.isNotBlank() && password.isNotBlank())) {
                     isLoading = true
                     viewModel.registerUser(
                         username = username.trim(),
@@ -161,7 +160,7 @@ fun SignupContent(
                         }
                     )
                 } else if (password.isBlank()) {
-                    errorMessage = context.getString(R.string.error_empty_password)
+                    errorMessage = emptyPasswordError
                 }
             },
             modifier = Modifier.fillMaxWidth(),

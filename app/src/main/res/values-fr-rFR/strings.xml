@@ -37,7 +37,6 @@
     <string name="stats_following">Suivis</string>
     <string name="profile_bio">Explorateur passionné 🌍 | À la recherche des meilleurs bons plans voyage !</string>
     <string name="edit_profile_button">Modifier le profil</string>
-    <string name="settings_button">Paramètres</string>
     <string name="logout_button">Déconnexion</string>
     <string name="create_post_screen_preview_text">Écran de création de post</string>
 

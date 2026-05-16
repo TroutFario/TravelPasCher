@@ -2,8 +2,6 @@ plugins {
     id("com.google.gms.google-services")
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
-    alias(libs.plugins.ksp)
-    alias(libs.plugins.androidx.room)
 }
 
 android {
@@ -42,10 +40,22 @@ android {
         compose = true
         buildConfig = true
     }
-}
 
-room {
-    schemaDirectory("$projectDir/schemas")
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+    
+    configurations.all {
+        resolutionStrategy {
+            force("com.google.android.gms:play-services-basement:18.4.0")
+            force("com.google.android.gms:play-services-tasks:18.2.0")
+        }
+        exclude(group = "org.chromium.net", module = "cronet-fallback")
+        exclude(group = "org.chromium.net", module = "cronet-common")
+        exclude(group = "org.chromium.net", module = "cronet-api")
+    }
 }
 
 dependencies {
@@ -74,12 +84,10 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
-    implementation(libs.androidx.room.runtime)
-    ksp(libs.androidx.room.compiler)
-
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
 
     implementation(libs.play.services.safetynet)
+    implementation(libs.play.services.cronet)
     implementation(libs.recaptcha)
 }

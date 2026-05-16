@@ -26,10 +26,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
@@ -39,39 +39,64 @@ import fr.troubidoo.travelpascher.ui.screen.auth.AuthScreen
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.*
 
+// --- États UI ---
+
+data class MainUiState(
+    val currentTab: Int = 0,
+    val isSettingsVisible: Boolean = false
+)
+
+data class ProfileUiState(
+    val selectedPost: UiPost? = null
+)
+
+data class SettingsUiState(
+    val firstName: String = "",
+    val lastName: String = "",
+    val bio: String = "",
+    val selectedImageUri: Uri? = null,
+    val isLoading: Boolean = false,
+    val message: String? = null
+)
+
+// --- Composants principaux ---
+
 @Composable
 fun MainScreen(viewModel: FeedViewModel) {
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var showSettings by remember { mutableStateOf(false) }
+    var uiState by remember { mutableStateOf(MainUiState()) }
     val currentUser by viewModel.currentUser.collectAsState()
     val userData by viewModel.userData.collectAsState()
 
     MainScreenContent(
-        selectedTab = selectedTab,
-        onTabSelected = { selectedTab = it },
+        currentTab = uiState.currentTab,
+        onTabSelected = { uiState = uiState.copy(currentTab = it) },
         userData = userData,
+        showBars = !uiState.isSettingsVisible,
         content = {
-            if (showSettings) {
+            if (uiState.isSettingsVisible) {
                 SettingsScreen(
                     viewModel = viewModel,
-                    onBack = { showSettings = false }
+                    onBack = { uiState = uiState.copy(isSettingsVisible = false) }
                 )
             } else {
-                when (selectedTab) {
+                when (uiState.currentTab) {
                     0 -> FeedScreen(viewModel = viewModel)
                     1 -> CreatePostScreen(
                         viewModel = viewModel,
-                        onPostSuccess = { selectedTab = 0 }
+                        onPostSuccess = { uiState = uiState.copy(currentTab = 0) }
                     )
                     3 -> {
                         if (currentUser != null) {
                             ProfileScreen(
                                 viewModel = viewModel,
-                                onSettingsClick = { showSettings = true }
+                                onSettingsClick = { uiState = uiState.copy(isSettingsVisible = true) }
                             )
                         } else {
                             AuthScreen(viewModel = viewModel)
                         }
+                    }
+                    2 -> {
+                        ExploreScreen()
                     }
                     else -> {
                         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -89,7 +114,7 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
     val currentUser by viewModel.currentUser.collectAsState()
     val userData by viewModel.userData.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
-    var selectedPost by remember { mutableStateOf<UiPost?>(null) }
+    var profileState by remember { mutableStateOf(ProfileUiState()) }
 
     val userPosts = remember(allPosts, currentUser) {
         allPosts.filter { it.userId == currentUser?.uid }
@@ -102,21 +127,21 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
         profileImageUrl = userData?.profileImageUrl ?: "",
         posts = userPosts,
         onLogout = { viewModel.logout() },
-        onPostClick = { selectedPost = it },
+        onPostClick = { profileState = profileState.copy(selectedPost = it) },
         onSettingsClick = onSettingsClick
     )
 
-    if (selectedPost != null) {
+    profileState.selectedPost?.let { post ->
         PostDetailDialog(
-            post = selectedPost!!,
-            onDismiss = { selectedPost = null },
+            post = post,
+            onDismiss = { profileState = profileState.copy(selectedPost = null) },
             onUpdate = { newLocation ->
-                viewModel.updatePost(selectedPost!!.id, newLocation)
-                selectedPost = null
+                viewModel.updatePost(post.id, newLocation)
+                profileState = profileState.copy(selectedPost = null)
             },
             onDelete = {
-                viewModel.deletePost(selectedPost!!.id, selectedPost!!.imageUrl)
-                selectedPost = null
+                viewModel.deletePost(post.id, post.imageUrl)
+                profileState = profileState.copy(selectedPost = null)
             }
         )
     }
@@ -354,109 +379,141 @@ fun ProfileStat(number: String, label: String) {
     }
 }
 
+@Composable
+fun ExploreScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            painter = painterResource(R.drawable.outline_globe_24),
+            contentDescription = null,
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.primary
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = "Explorez le monde",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Bientôt : trouvez des compagnons de voyage et des bons plans !",
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreenContent(
-    selectedTab: Int,
+    currentTab: Int,
     onTabSelected: (Int) -> Unit,
     userData: UiUser? = null,
+    showBars: Boolean = true,
     content: @Composable () -> Unit
 ) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                modifier = Modifier.shadow(elevation = 4.dp),
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        IconButton(
-                            onClick = { /* TODO */ },
-                            modifier = Modifier.size(40.dp)
+            if (showBars) {
+                TopAppBar(
+                    modifier = Modifier.shadow(elevation = 4.dp),
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clip(CircleShape)
-                                    .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                    .padding(2.dp)
+                            IconButton(
+                                onClick = { onTabSelected(3) },
+                                modifier = Modifier.size(40.dp)
                             ) {
-                                if (userData?.profileImageUrl?.isNotEmpty() == true) {
-                                    AsyncImage(
-                                        model = userData.profileImageUrl,
-                                        contentDescription = stringResource(R.string.my_profile),
-                                        modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                        contentScale = ContentScale.Crop
-                                    )
-                                } else {
-                                    Icon(
-                                        painter = painterResource(id = R.drawable.outline_globe_24),
-                                        contentDescription = stringResource(R.string.my_profile),
-                                        modifier = Modifier.fillMaxSize(),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                                        .padding(2.dp)
+                                ) {
+                                    if (userData?.profileImageUrl?.isNotEmpty() == true) {
+                                        AsyncImage(
+                                            model = userData.profileImageUrl,
+                                            contentDescription = stringResource(R.string.my_profile),
+                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.outline_globe_24),
+                                            contentDescription = stringResource(R.string.my_profile),
+                                            modifier = Modifier.fillMaxSize(),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
                                 }
                             }
-                        }
 
-                        Text(
-                            text = stringResource(R.string.app_name),
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.outline_send_24),
-                            contentDescription = stringResource(R.string.add_image_button),
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    actionIconContentColor = MaterialTheme.colorScheme.primary
-                ),
-            )
+                            Text(
+                                text = stringResource(R.string.app_name),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { onTabSelected(1) }) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.outline_send_24),
+                                contentDescription = stringResource(R.string.add_image_button),
+                                modifier = Modifier.size(40.dp)
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        actionIconContentColor = MaterialTheme.colorScheme.primary
+                    ),
+                )
+            }
         },
         bottomBar = {
-            BottomAppBar(
-                modifier = Modifier
-                    .navigationBarsPadding()
-                    .height(64.dp),
-                containerColor = MaterialTheme.colorScheme.background,
-                tonalElevation = 8.dp,
-                contentPadding = PaddingValues(0.dp),
-                windowInsets = WindowInsets(0, 0, 0, 0)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxHeight(),
-                    verticalAlignment = Alignment.CenterVertically
+            if (showBars) {
+                BottomAppBar(
+                    modifier = Modifier
+                        .navigationBarsPadding()
+                        .height(64.dp),
+                    containerColor = MaterialTheme.colorScheme.background,
+                    tonalElevation = 8.dp,
+                    contentPadding = PaddingValues(0.dp),
+                    windowInsets = WindowInsets(0, 0, 0, 0)
                 ) {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { onTabSelected(0) },
-                        icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { onTabSelected(1) },
-                        icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { onTabSelected(2) },
-                        icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 3,
-                        onClick = { onTabSelected(3) },
-                        icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxHeight(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NavigationBarItem(
+                            selected = currentTab == 0,
+                            onClick = { onTabSelected(0) },
+                            icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == 1,
+                            onClick = { onTabSelected(1) },
+                            icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == 2,
+                            onClick = { onTabSelected(2) },
+                            icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
+                        )
+                        NavigationBarItem(
+                            selected = currentTab == 3,
+                            onClick = { onTabSelected(3) },
+                            icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
+                        )
+                    }
                 }
             }
         }
@@ -481,7 +538,7 @@ fun MainScreenFeedPreview() {
 
     TravelPasCherTheme {
         MainScreenContent(
-            selectedTab = 0,
+            currentTab = 0,
             onTabSelected = {},
             userData = null
         ) {
@@ -495,7 +552,7 @@ fun MainScreenFeedPreview() {
 fun MainScreenCreatePostPreview() {
     TravelPasCherTheme {
         MainScreenContent(
-            selectedTab = 1,
+            currentTab = 1,
             onTabSelected = {},
             userData = null
         ) {
@@ -508,21 +565,24 @@ fun MainScreenCreatePostPreview() {
 
 @Composable
 fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
-    val context = LocalContext.current
     val userData by viewModel.userData.collectAsState()
-    var firstName by remember(userData) { mutableStateOf(userData?.firstName ?: "") }
-    var lastName by remember(userData) { mutableStateOf(userData?.lastName ?: "") }
-    var bio by remember(userData) { mutableStateOf(userData?.bio ?: "") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var message by remember { mutableStateOf<String?>(null) }
+    var settingsState by remember(userData) {
+        mutableStateOf(
+            SettingsUiState(
+                firstName = userData?.firstName ?: "",
+                lastName = userData?.lastName ?: "",
+                bio = userData?.bio ?: ""
+            )
+        )
+    }
     
+    val successMessage = stringResource(R.string.profile_updated_success)
     val scrollState = rememberScrollState()
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        selectedImageUri = uri
+        settingsState = settingsState.copy(selectedImageUri = uri)
     }
 
     Column(
@@ -553,12 +613,12 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                 .size(100.dp)
                 .clip(CircleShape)
                 .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                .clickable(enabled = !isLoading) { launcher.launch("image/*") },
+                .clickable(enabled = !settingsState.isLoading) { launcher.launch("image/*") },
             contentAlignment = Alignment.Center
         ) {
-            if (selectedImageUri != null) {
+            if (settingsState.selectedImageUri != null) {
                 AsyncImage(
-                    model = selectedImageUri,
+                    model = settingsState.selectedImageUri,
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -583,36 +643,36 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = firstName,
-            onValueChange = { firstName = it },
+            value = settingsState.firstName,
+            onValueChange = { settingsState = settingsState.copy(firstName = it) },
             label = { Text(stringResource(R.string.firstname_label)) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !settingsState.isLoading
         )
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = lastName,
-            onValueChange = { lastName = it },
+            value = settingsState.lastName,
+            onValueChange = { settingsState = settingsState.copy(lastName = it) },
             label = { Text(stringResource(R.string.lastname_label)) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !settingsState.isLoading
         )
         Spacer(modifier = Modifier.height(8.dp))
         OutlinedTextField(
-            value = bio,
-            onValueChange = { bio = it },
+            value = settingsState.bio,
+            onValueChange = { settingsState = settingsState.copy(bio = it) },
             label = { Text(stringResource(R.string.bio_label)) },
             modifier = Modifier.fillMaxWidth(),
             minLines = 3,
             maxLines = 5,
-            enabled = !isLoading
+            enabled = !settingsState.isLoading
         )
 
-        if (message != null) {
+        if (settingsState.message != null) {
             Spacer(modifier = Modifier.height(16.dp))
-            val isSuccess = message == context.getString(R.string.profile_updated_success)
+            val isSuccess = settingsState.message == successMessage
             Text(
-                text = message!!,
+                text = settingsState.message!!,
                 color = if (isSuccess) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
         }
@@ -621,27 +681,28 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
 
         Button(
             onClick = {
-                isLoading = true
+                settingsState = settingsState.copy(isLoading = true)
                 viewModel.updateUserProfile(
-                    firstName = firstName,
-                    lastName = lastName,
-                    bio = bio,
-                    newProfileImageUri = selectedImageUri,
+                    firstName = settingsState.firstName,
+                    lastName = settingsState.lastName,
+                    bio = settingsState.bio,
+                    newProfileImageUri = settingsState.selectedImageUri,
                     onSuccess = {
-                        isLoading = false
-                        message = context.getString(R.string.profile_updated_success)
-                        selectedImageUri = null // Reset selection after success
+                        settingsState = settingsState.copy(
+                            isLoading = false,
+                            message = successMessage,
+                            selectedImageUri = null // Reset selection after success
+                        )
                     },
                     onError = {
-                        isLoading = false
-                        message = it
+                        settingsState = settingsState.copy(isLoading = false, message = it)
                     }
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && firstName.isNotBlank() && lastName.isNotBlank()
+            enabled = !settingsState.isLoading && settingsState.firstName.isNotBlank() && settingsState.lastName.isNotBlank()
         ) {
-            if (isLoading) {
+            if (settingsState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text(stringResource(R.string.save_profile_button))
@@ -660,7 +721,7 @@ fun MainScreenProfilePreview() {
     )
     TravelPasCherTheme {
         MainScreenContent(
-            selectedTab = 3,
+            currentTab = 3,
             onTabSelected = {},
             userData = null
         ) {

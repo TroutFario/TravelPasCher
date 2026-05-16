@@ -23,48 +23,20 @@ import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 
-@Composable
-fun CreatePostScreen(viewModel: FeedViewModel, onPostSuccess: () -> Unit) {
-    var isLoading by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    CreatePostContent(
-        isLoading = isLoading,
-        errorMessage = errorMessage,
-        onPostClick = { location, imageUri ->
-            isLoading = true
-            errorMessage = null
-            viewModel.uploadPost(
-                location = location,
-                imageUri = imageUri,
-                onSuccess = {
-                    isLoading = false
-                    onPostSuccess()
-                },
-                onError = { error ->
-                    isLoading = false
-                    errorMessage = error
-                }
-            )
-        }
-    )
-}
+data class CreatePostUiState(
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null,
+    val location: String = "",
+    val selectedImageUri: Uri? = null
+)
 
 @Composable
-fun CreatePostContent(
-    isLoading: Boolean,
-    errorMessage: String?,
-    onPostClick: (String, Uri?) -> Unit
+private fun CreatePostContent(
+    uiState: CreatePostUiState,
+    onLocationChange: (String) -> Unit,
+    onImageClick: () -> Unit,
+    onPostClick: () -> Unit
 ) {
-    var location by remember { mutableStateOf("") }
-    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        selectedImageUri = uri
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -87,12 +59,12 @@ fun CreatePostContent(
                 .height(200.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
-                .clickable(enabled = !isLoading) { launcher.launch("image/*") },
+                .clickable(enabled = !uiState.isLoading) { onImageClick() },
             contentAlignment = Alignment.Center
         ) {
-            if (selectedImageUri != null) {
+            if (uiState.selectedImageUri != null) {
                 AsyncImage(
-                    model = selectedImageUri,
+                    model = uiState.selectedImageUri,
                     contentDescription = stringResource(R.string.selected_image_desc),
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
@@ -114,28 +86,28 @@ fun CreatePostContent(
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = location,
-            onValueChange = { location = it },
+            value = uiState.location,
+            onValueChange = onLocationChange,
             label = { Text(stringResource(R.string.location_hint)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            enabled = !isLoading
+            enabled = !uiState.isLoading
         )
 
-        if (errorMessage != null) {
+        if (uiState.errorMessage != null) {
             Spacer(modifier = Modifier.height(16.dp))
-            Text(text = errorMessage, color = MaterialTheme.colorScheme.error)
+            Text(text = uiState.errorMessage, color = MaterialTheme.colorScheme.error)
         }
 
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = { onPostClick(location, selectedImageUri) },
+            onClick = onPostClick,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && location.isNotBlank() && selectedImageUri != null,
+            enabled = (!uiState.isLoading && uiState.location.isNotBlank() && uiState.selectedImageUri != null),
             shape = MaterialTheme.shapes.medium
         ) {
-            if (isLoading) {
+            if (uiState.isLoading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary,
@@ -150,15 +122,47 @@ fun CreatePostContent(
     }
 }
 
+@Composable
+fun CreatePostScreen(viewModel: FeedViewModel, onPostSuccess: () -> Unit) {
+    var uiState by remember { mutableStateOf(CreatePostUiState()) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uiState = uiState.copy(selectedImageUri = uri)
+    }
+
+    CreatePostContent(
+        uiState = uiState,
+        onLocationChange = { uiState = uiState.copy(location = it) },
+        onImageClick = { launcher.launch("image/*") },
+        onPostClick = {
+            uiState = uiState.copy(isLoading = true, errorMessage = null)
+            viewModel.uploadPost(
+                location = uiState.location,
+                imageUri = uiState.selectedImageUri,
+                onSuccess = {
+                    uiState = uiState.copy(isLoading = false)
+                    onPostSuccess()
+                },
+                onError = { error ->
+                    uiState = uiState.copy(isLoading = false, errorMessage = error)
+                }
+            )
+        }
+    )
+}
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun CreatePostScreenPreview() {
     TravelPasCherTheme {
         Surface {
             CreatePostContent(
-                isLoading = false,
-                errorMessage = null,
-                onPostClick = { _, _ -> }
+                uiState = CreatePostUiState(),
+                onLocationChange = {},
+                onImageClick = {},
+                onPostClick = {}
             )
         }
     }
@@ -170,9 +174,10 @@ fun CreatePostScreenLoadingPreview() {
     TravelPasCherTheme {
         Surface {
             CreatePostContent(
-                isLoading = true,
-                errorMessage = null,
-                onPostClick = { _, _ -> }
+                uiState = CreatePostUiState(isLoading = true, location = "Paris"),
+                onLocationChange = {},
+                onImageClick = {},
+                onPostClick = {}
             )
         }
     }
@@ -184,9 +189,13 @@ fun CreatePostScreenErrorPreview() {
     TravelPasCherTheme {
         Surface {
             CreatePostContent(
-                isLoading = false,
-                errorMessage = stringResource(R.string.error_sending_post),
-                onPostClick = { _, _ -> }
+                uiState = CreatePostUiState(
+                    errorMessage = stringResource(R.string.error_sending_post),
+                    location = "Lyon"
+                ),
+                onLocationChange = {},
+                onImageClick = {},
+                onPostClick = {}
             )
         }
     }

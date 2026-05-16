@@ -41,6 +41,7 @@
     <string name="create_post_screen_preview_text">Create Post Screen Preview</string>
 
     <!-- Auth Screen -->
+    <string name="profile_updated_success">Profile updated successfully!</string>
     <string name="welcome_title">Welcome to TravelPasCher</string>
     <string name="welcome_subtitle">The adventure starts here</string>
     <string name="login_button">Login</string>
@@ -55,6 +56,10 @@
     <string name="username_label">Username</string>
     <string name="error_empty_password">Password cannot be empty</string>
     <string name="register_button">Sign up</string>
+    <string name="settings_title">Settings</string>
+    <string name="bio_label">Bio</string>
+    <string name="save_profile_button">Save Profile</string>
+    <string name="add_profile_pic_label">Add profile picture</string>
 
     <!-- Feed ViewModel / Errors -->
 </resources>

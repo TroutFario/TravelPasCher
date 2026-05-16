@@ -9,7 +9,6 @@ import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.storage.storage
-import fr.troubidoo.travelpascher.data.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -42,11 +41,7 @@ data class UiUser(
     val profileImageUrl: String = ""
 )
 
-class FeedViewModel(
-    private val postDao: PostDAO,
-    private val storyDao: StoryDAO,
-    private val userDao: UserDAO
-) : ViewModel() {
+class FeedViewModel : ViewModel() {
 
     private val db = Firebase.firestore
     private val auth = Firebase.auth
