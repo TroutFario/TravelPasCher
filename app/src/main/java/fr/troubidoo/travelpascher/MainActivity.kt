@@ -10,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.room.Room
 import com.google.firebase.Firebase
@@ -17,7 +18,7 @@ import com.google.firebase.appcheck.appCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.initialize
 import fr.troubidoo.travelpascher.data.*
-import fr.troubidoo.travelpascher.ui.screen.AuthScreen
+import fr.troubidoo.travelpascher.ui.screen.auth.AuthScreen
 import fr.troubidoo.travelpascher.ui.screen.FeedScreenContent
 import fr.troubidoo.travelpascher.ui.screen.MainScreen
 import fr.troubidoo.travelpascher.ui.screen.MainScreenContent
@@ -71,8 +72,8 @@ fun MainActivityPreview() {
     )
 
     val samplePosts = listOf(
-        UiPost("1", "Traveler1", "Paris", "", System.currentTimeMillis()),
-        UiPost("2", "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
+        UiPost("1", "1", "Traveler1", "", stringResource(R.string.location), "", System.currentTimeMillis()),
+        UiPost("2", "2", "Alice", "", stringResource(R.string.location), "", System.currentTimeMillis() - 3600000)
     )
 
     var selectedTab by remember { mutableIntStateOf(0) }

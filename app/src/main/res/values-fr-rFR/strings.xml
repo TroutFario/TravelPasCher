@@ -4,10 +4,8 @@
     <string name="home_button">Bouton Accueil</string>
     <string name="add_image_button">Bouton Ajout d\'Image</string>
     <string name="profile_picture">Photo de profil</string>
-    <string name="username">Pseudonyme</string>
     <string name="post_image">Image du post</string>
     <string name="middle_point">•</string>
-    <string name="datetime">Date et Heure</string>
     <string name="location">Emplacement</string>
     <string name="like">Liker</string>
     <string name="comment">Commenter</string>
@@ -17,5 +15,54 @@
     <string name="globe">Globe</string>
     <string name="profile">Profil</string>
     <string name="story">Story</string>
-    <string name="time_ago">Il y a %s</string>
+
+    <!-- Create Post Screen -->
+    <string name="share_travel_title">Partager un voyage</string>
+    <string name="selected_image_desc">Image sélectionnée</string>
+    <string name="add_photo_label">Ajouter une photo</string>
+    <string name="location_hint">Lieu (ex: Paris, France)</string>
+    <string name="publish_button">Publier</string>
+    <string name="error_sending_post">Une erreur est survenue lors de l\'envoi</string>
+
+    <!-- Main/Profile Screen -->
+    <string name="screen_under_development">Écran en cours de développement</string>
+    <string name="default_username">Voyageur</string>
+    <string name="label_location">Localisation</string>
+    <string name="save_button">Sauvegarder</string>
+    <string name="cancel_button">Annuler</string>
+    <string name="edit_action">Modifier</string>
+    <string name="delete_action">Supprimer</string>
+    <string name="stats_posts">Posts</string>
+    <string name="stats_followers">Abonnés</string>
+    <string name="stats_following">Suivis</string>
+    <string name="profile_bio">Explorateur passionné 🌍 | À la recherche des meilleurs bons plans voyage !</string>
+    <string name="edit_profile_button">Modifier le profil</string>
+    <string name="settings_button">Paramètres</string>
+    <string name="logout_button">Déconnexion</string>
+    <string name="create_post_screen_preview_text">Écran de création de post</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Paramètres</string>
+    <string name="bio_label">Bio</string>
+    <string name="save_profile_button">Sauvegarder le profil</string>
+    <string name="profile_updated_success">Profil mis à jour avec succès !</string>
+
+    <!-- Auth Screen -->
+    <string name="welcome_title">Bienvenue sur TravelPasCher</string>
+    <string name="welcome_subtitle">L\'aventure commence ici</string>
+    <string name="login_button">Se connecter</string>
+    <string name="signup_button">Créer un compte</string>
+    <string name="login_title">Connexion</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Mot de passe</string>
+    <string name="back_button">Retour</string>
+    <string name="signup_title">Inscription</string>
+    <string name="firstname_label">Prénom</string>
+    <string name="lastname_label">Nom</string>
+    <string name="username_label">Nom d\'utilisateur</string>
+    <string name="error_empty_password">Le mot de passe ne peut pas être vide</string>
+    <string name="register_button">S\'inscrire</string>
+    <string name="add_profile_pic_label">Ajouter une photo de profil</string>
+
+    <!-- Feed ViewModel / Errors -->
 </resources>

@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -23,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -42,6 +44,7 @@ fun Post(
     location: String,
     time: Long,
     imageUrl: String,
+    authorProfileImageUrl: String = "",
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
@@ -75,12 +78,23 @@ fun Post(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 
-                    Icon(
-                        painter = painterResource(R.drawable.outline_account_circle_24),
-                        contentDescription = stringResource(R.string.profile_picture),
-                        modifier = Modifier.size(40.dp),
-                        tint = MaterialTheme.colorScheme.onSurface
-                    )
+                    if (authorProfileImageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = authorProfileImageUrl,
+                            contentDescription = stringResource(R.string.profile_picture),
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape),
+                            contentScale = ContentScale.Crop
+                        )
+                    } else {
+                        Icon(
+                            painter = painterResource(R.drawable.outline_account_circle_24),
+                            contentDescription = stringResource(R.string.profile_picture),
+                            modifier = Modifier.size(40.dp),
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
 
                     Spacer(modifier = Modifier.width(8.dp))
 

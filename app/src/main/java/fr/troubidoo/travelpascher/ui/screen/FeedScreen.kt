@@ -51,7 +51,8 @@ fun FeedScreenContent(stories: List<UiStory>, posts: List<UiPost>) {
                 username = post.username,
                 location = post.location,
                 time = post.createdAt,
-                imageUrl = post.imageUrl
+                imageUrl = post.imageUrl,
+                authorProfileImageUrl = post.authorProfileImageUrl
             )
         }
     }
@@ -113,8 +114,8 @@ fun FeedScreenPreview() {
     )
 
     val samplePosts = listOf(
-        UiPost("1", "Traveler1", "Paris", "", System.currentTimeMillis()),
-        UiPost("2", "Alice", "Lyon", "", System.currentTimeMillis() - 3600000)
+        UiPost("1", "1", "Traveler1", "", stringResource(R.string.location), "", System.currentTimeMillis()),
+        UiPost("2", "2", "Alice", "", stringResource(R.string.location), "", System.currentTimeMillis() - 3600000)
     )
 
     FeedScreenContent(posts = samplePosts, stories = sampleStories)

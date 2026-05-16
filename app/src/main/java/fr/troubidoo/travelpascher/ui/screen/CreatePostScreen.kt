@@ -1,12 +1,25 @@
 package fr.troubidoo.travelpascher.ui.screen
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 
@@ -18,13 +31,19 @@ fun CreatePostScreen(viewModel: FeedViewModel, onPostSuccess: () -> Unit) {
     CreatePostContent(
         isLoading = isLoading,
         errorMessage = errorMessage,
-        onPostClick = { location ->
+        onPostClick = { location, imageUri ->
+            isLoading = true
+            errorMessage = null
             viewModel.uploadPost(
                 location = location,
+                imageUri = imageUri,
                 onSuccess = {
+                    isLoading = false
                     onPostSuccess()
                 },
-                onError = {
+                onError = { error ->
+                    isLoading = false
+                    errorMessage = error
                 }
             )
         }
@@ -35,9 +54,16 @@ fun CreatePostScreen(viewModel: FeedViewModel, onPostSuccess: () -> Unit) {
 fun CreatePostContent(
     isLoading: Boolean,
     errorMessage: String?,
-    onPostClick: (String) -> Unit
+    onPostClick: (String, Uri?) -> Unit
 ) {
     var location by remember { mutableStateOf("") }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        selectedImageUri = uri
+    }
 
     Column(
         modifier = Modifier
@@ -47,17 +73,50 @@ fun CreatePostContent(
         verticalArrangement = Arrangement.Top
     ) {
         Text(
-            text = "Partager un voyage",
+            text = stringResource(R.string.share_travel_title),
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary
         )
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // Zone de sélection d'image
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+                .clickable(enabled = !isLoading) { launcher.launch("image/*") },
+            contentAlignment = Alignment.Center
+        ) {
+            if (selectedImageUri != null) {
+                AsyncImage(
+                    model = selectedImageUri,
+                    contentDescription = stringResource(R.string.selected_image_desc),
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        imageVector = Icons.Default.AddAPhoto,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(stringResource(R.string.add_photo_label), color = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         OutlinedTextField(
             value = location,
             onValueChange = { location = it },
-            label = { Text("Lieu (ex: Paris, France)") },
+            label = { Text(stringResource(R.string.location_hint)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             enabled = !isLoading
@@ -71,9 +130,9 @@ fun CreatePostContent(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = { onPostClick(location) },
+            onClick = { onPostClick(location, selectedImageUri) },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && location.isNotBlank(),
+            enabled = !isLoading && location.isNotBlank() && selectedImageUri != null,
             shape = MaterialTheme.shapes.medium
         ) {
             if (isLoading) {
@@ -83,7 +142,7 @@ fun CreatePostContent(
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Publier")
+                Text(stringResource(R.string.publish_button))
             }
         }
 
@@ -99,7 +158,7 @@ fun CreatePostScreenPreview() {
             CreatePostContent(
                 isLoading = false,
                 errorMessage = null,
-                onPostClick = { _ -> }
+                onPostClick = { _, _ -> }
             )
         }
     }
@@ -113,7 +172,7 @@ fun CreatePostScreenLoadingPreview() {
             CreatePostContent(
                 isLoading = true,
                 errorMessage = null,
-                onPostClick = { _ -> }
+                onPostClick = { _, _ -> }
             )
         }
     }
@@ -126,8 +185,8 @@ fun CreatePostScreenErrorPreview() {
         Surface {
             CreatePostContent(
                 isLoading = false,
-                errorMessage = "Une erreur est survenue lors de l'envoi",
-                onPostClick = { _ -> }
+                errorMessage = stringResource(R.string.error_sending_post),
+                onPostClick = { _, _ -> }
             )
         }
     }

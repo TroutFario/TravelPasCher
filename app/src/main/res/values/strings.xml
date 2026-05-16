@@ -3,10 +3,8 @@
     <string name="home_button">Home</string>
     <string name="add_image_button">Add Image</string>
     <string name="profile_picture">Profile Picture</string>
-    <string name="username">Username</string>
     <string name="post_image">Post Image</string>
     <string name="middle_point">•</string>
-    <string name="datetime">Date and Time</string>
     <string name="location">Location</string>
     <string name="like">Like</string>
     <string name="comment">Comment</string>
@@ -16,5 +14,54 @@
     <string name="globe">Globe</string>
     <string name="profile">Profile</string>
     <string name="story">Story</string>
-    <string name="time_ago">%s ago</string>
+
+    <!-- Create Post Screen -->
+    <string name="share_travel_title">Share a journey</string>
+    <string name="selected_image_desc">Selected image</string>
+    <string name="add_photo_label">Add a photo</string>
+    <string name="location_hint">Location (e.g. Paris, France)</string>
+    <string name="publish_button">Publish</string>
+    <string name="error_sending_post">An error occurred while sending</string>
+
+    <!-- Main/Profile Screen -->
+    <string name="screen_under_development">Screen under development</string>
+    <string name="default_username">Traveler</string>
+    <string name="label_location">Location</string>
+    <string name="save_button">Save</string>
+    <string name="cancel_button">Cancel</string>
+    <string name="edit_action">Edit</string>
+    <string name="delete_action">Delete</string>
+    <string name="stats_posts">Posts</string>
+    <string name="stats_followers">Followers</string>
+    <string name="stats_following">Following</string>
+    <string name="profile_bio">Passionate explorer 🌍 | Looking for the best travel deals!</string>
+    <string name="edit_profile_button">Edit profile</string>
+    <string name="settings_button">Settings</string>
+    <string name="logout_button">Logout</string>
+    <string name="create_post_screen_preview_text">Create Post Screen Preview</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_title">Settings</string>
+    <string name="bio_label">Bio</string>
+    <string name="save_profile_button">Save Profile</string>
+    <string name="profile_updated_success">Profile updated successfully!</string>
+
+    <!-- Auth Screen -->
+    <string name="welcome_title">Welcome to TravelPasCher</string>
+    <string name="welcome_subtitle">The adventure starts here</string>
+    <string name="login_button">Login</string>
+    <string name="signup_button">Create an account</string>
+    <string name="login_title">Login</string>
+    <string name="email_label">Email</string>
+    <string name="password_label">Password</string>
+    <string name="back_button">Back</string>
+    <string name="signup_title">Signup</string>
+    <string name="firstname_label">First name</string>
+    <string name="lastname_label">Last name</string>
+    <string name="username_label">Username</string>
+    <string name="error_empty_password">Password cannot be empty</string>
+    <string name="register_button">Sign up</string>
+    <string name="add_profile_pic_label">Add profile picture</string>
+
+    <!-- Feed ViewModel / Errors -->
 </resources>
