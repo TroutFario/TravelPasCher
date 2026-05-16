@@ -60,6 +60,9 @@ class FeedViewModel : ViewModel() {
     private val _stories = MutableStateFlow<List<UiStory>>(emptyList())
     val stories = _stories.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
     init {
         listenToFirestorePosts()
         listenToFirestoreStories()
@@ -270,6 +273,16 @@ class FeedViewModel : ViewModel() {
         auth.signOut()
         _currentUser.value = null
         _userData.value = null
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            // Puisque nous utilisons des SnapshotListeners, les données sont déjà à jour.
+            // On simule un petit délai pour le retour visuel de l'utilisateur.
+            kotlinx.coroutines.delay(1000)
+            _isRefreshing.value = false
+        }
     }
 
     fun updateUserProfile(firstName: String, lastName: String, bio: String, newProfileImageUri: Uri? = null, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {

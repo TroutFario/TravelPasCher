@@ -9,8 +9,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -30,30 +32,47 @@ import fr.troubidoo.travelpascher.viewmodel.UiStory
 @Composable
 fun FeedScreen(viewModel: FeedViewModel) {
     // On collecte les StateFlow de Firebase
-    val posts = viewModel.posts.collectAsState().value
-    val stories = viewModel.stories.collectAsState().value
+    val posts by viewModel.posts.collectAsState()
+    val stories by viewModel.stories.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
     
-    FeedScreenContent(stories = stories, posts = posts)
+    FeedScreenContent(
+        stories = stories,
+        posts = posts,
+        isRefreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() }
+    )
 }
 
 @Composable
-fun FeedScreenContent(stories: List<UiStory>, posts: List<UiPost>) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 16.dp)
+fun FeedScreenContent(
+    stories: List<UiStory>,
+    posts: List<UiPost>,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {}
+) {
+    PullToRefreshBox(
+        isRefreshing = isRefreshing,
+        onRefresh = onRefresh,
+        modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            StoriesSection(stories)
-        }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 16.dp)
+        ) {
+            item {
+                StoriesSection(stories)
+            }
 
-        items(posts) { post ->
-            Post(
-                username = post.username,
-                location = post.location,
-                time = post.createdAt,
-                imageUrl = post.imageUrl,
-                authorProfileImageUrl = post.authorProfileImageUrl
-            )
+            items(posts) { post ->
+                Post(
+                    username = post.username,
+                    location = post.location,
+                    time = post.createdAt,
+                    imageUrl = post.imageUrl,
+                    authorProfileImageUrl = post.authorProfileImageUrl
+                )
+            }
         }
     }
 }
@@ -118,5 +137,10 @@ fun FeedScreenPreview() {
         UiPost("2", "2", "Alice", "", stringResource(R.string.location), "", System.currentTimeMillis() - 3600000)
     )
 
-    FeedScreenContent(posts = samplePosts, stories = sampleStories)
+    FeedScreenContent(
+        posts = samplePosts,
+        stories = sampleStories,
+        isRefreshing = false,
+        onRefresh = {}
+    )
 }
