@@ -542,7 +542,14 @@ fun MainScreenFeedPreview() {
             onTabSelected = {},
             userData = null
         ) {
-            FeedScreenContent(posts = samplePosts, stories = sampleStories)
+            FeedScreenContent(
+                posts = samplePosts,
+                stories = sampleStories,
+                isRefreshing = false,
+                currentUserId = null,
+                onRefresh = {},
+                onLikeClick = {}
+            )
         }
     }
 }

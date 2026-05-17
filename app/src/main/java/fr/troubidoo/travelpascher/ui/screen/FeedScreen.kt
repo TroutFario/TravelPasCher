@@ -35,12 +35,15 @@ fun FeedScreen(viewModel: FeedViewModel) {
     val posts by viewModel.posts.collectAsState()
     val stories by viewModel.stories.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val currentUser by viewModel.currentUser.collectAsState()
     
     FeedScreenContent(
         stories = stories,
         posts = posts,
         isRefreshing = isRefreshing,
-        onRefresh = { viewModel.refresh() }
+        currentUserId = currentUser?.uid,
+        onRefresh = { viewModel.refresh() },
+        onLikeClick = { postId -> viewModel.toggleLike(postId) }
     )
 }
 
@@ -49,7 +52,9 @@ fun FeedScreenContent(
     stories: List<UiStory>,
     posts: List<UiPost>,
     isRefreshing: Boolean = false,
-    onRefresh: () -> Unit = {}
+    currentUserId: String? = null,
+    onRefresh: () -> Unit = {},
+    onLikeClick: (String) -> Unit = {}
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -70,7 +75,10 @@ fun FeedScreenContent(
                     location = post.location,
                     time = post.createdAt,
                     imageUrl = post.imageUrl,
-                    authorProfileImageUrl = post.authorProfileImageUrl
+                    authorProfileImageUrl = post.authorProfileImageUrl,
+                    isLiked = currentUserId != null && post.likedBy.contains(currentUserId),
+                    likeCount = post.likedBy.size,
+                    onLikeClick = { onLikeClick(post.id) }
                 )
             }
         }
@@ -141,6 +149,8 @@ fun FeedScreenPreview() {
         posts = samplePosts,
         stories = sampleStories,
         isRefreshing = false,
-        onRefresh = {}
+        currentUserId = null,
+        onRefresh = {},
+        onLikeClick = {}
     )
 }

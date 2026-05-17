@@ -7,6 +7,7 @@ import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
 import com.google.firebase.auth.auth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.firestore
 import com.google.firebase.storage.storage
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,7 +23,8 @@ data class UiPost(
     val authorProfileImageUrl: String = "",
     val location: String,
     val imageUrl: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val likedBy: List<String> = emptyList()
 )
 
 data class UiStory(
@@ -104,6 +106,7 @@ class FeedViewModel : ViewModel() {
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
+                        @Suppress("UNCHECKED_CAST")
                         UiPost(
                             id = doc.id,
                             userId = doc.get("userId")?.toString() ?: "",
@@ -111,7 +114,8 @@ class FeedViewModel : ViewModel() {
                             authorProfileImageUrl = doc.getString("authorProfileImageUrl") ?: "",
                             location = doc.getString("location") ?: "",
                             imageUrl = doc.getString("imageUrl") ?: "",
-                            createdAt = doc.getLong("createdAt") ?: 0L
+                            createdAt = doc.getLong("createdAt") ?: 0L,
+                            likedBy = doc.get("likedBy") as? List<String> ?: emptyList()
                         )
                     }
                     _posts.value = list
@@ -175,7 +179,8 @@ class FeedViewModel : ViewModel() {
                     "authorProfileImageUrl" to authorProfileImageUrl,
                     "location" to location,
                     "imageUrl" to imageUrl,
-                    "createdAt" to System.currentTimeMillis()
+                    "createdAt" to System.currentTimeMillis(),
+                    "likedBy" to arrayListOf<String>()
                 )
 
                 db.collection("posts").add(postData).await()
@@ -322,6 +327,26 @@ class FeedViewModel : ViewModel() {
         }
     }
 
+    fun toggleLike(postId: String) {
+        val user = auth.currentUser ?: return
+        val posts = _posts.value
+        val post = posts.find { it.id == postId } ?: return
+        val isLiked = post.likedBy.contains(user.uid)
+
+        viewModelScope.launch {
+            try {
+                val postRef = db.collection("posts").document(postId)
+                if (isLiked) {
+                    postRef.update("likedBy", FieldValue.arrayRemove(user.uid)).await()
+                } else {
+                    postRef.update("likedBy", FieldValue.arrayUnion(user.uid)).await()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun updatePost(postId: String, newLocation: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
             try {
@@ -336,19 +361,20 @@ class FeedViewModel : ViewModel() {
     fun deletePost(postId: String, imageUrl: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
         viewModelScope.launch {
             try {
-                // 1. Supprimer l'image si elle existe
-                if (imageUrl.isNotEmpty()) {
+                // 1. Supprimer d'abord le document Firestore
+                db.collection("posts").document(postId).delete().await()
+
+                // 2. Tenter de supprimer l'image de manière indépendante (seulement si c'est un lien Firebase)
+                if (imageUrl.isNotEmpty() && imageUrl.startsWith("https://firebasestorage")) {
                     try {
                         storage.getReferenceFromUrl(imageUrl).delete().await()
                     } catch (e: Exception) {
-                        // On ignore si l'image n'existe plus ou erreur storage
-                        e.printStackTrace()
+                        android.util.Log.e("DELETE_POST", "Failed to delete storage file", e)
                     }
                 }
-                // 2. Supprimer le document Firestore
-                db.collection("posts").document(postId).delete().await()
                 onSuccess()
             } catch (e: Exception) {
+                android.util.Log.e("DELETE_POST", "Failed to delete firestore document", e)
                 onError(e.message ?: "Erreur lors de la suppression")
             }
         }
