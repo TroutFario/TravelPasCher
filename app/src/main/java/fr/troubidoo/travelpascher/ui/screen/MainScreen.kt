@@ -51,7 +51,7 @@ fun MainScreen(viewModel: FeedViewModel) {
             } else {
                 when (uiState.currentTab) {
                     0 -> FeedScreen(viewModel = viewModel)
-                    1 -> ExploreScreen()
+                    1 -> ExploreScreen(viewModel = viewModel)
                     2 -> CreatePostScreen(
                         viewModel = viewModel,
                         onPostSuccess = { uiState = uiState.copy(currentTab = 0) }
