@@ -12,6 +12,7 @@
     <string name="save">Enregistrer</string>
     <string name="my_profile">Mon Profil</string>
     <string name="globe">Globe</string>
+    <string name="itineraries">Itinéraires</string>
     <string name="profile">Profil</string>
     <string name="story">Story</string>
 
@@ -19,7 +20,6 @@
     <string name="share_travel_title">Partager un voyage</string>
     <string name="selected_image_desc">Image sélectionnée</string>
     <string name="add_photo_label">Ajouter une photo</string>
-    <string name="location_hint">Lieu (ex: Paris, France)</string>
     <string name="publish_button">Publier</string>
     <string name="error_sending_post">Une erreur est survenue lors de l\'envoi</string>
 
@@ -37,6 +37,8 @@
     <string name="profile_bio">Explorateur passionné 🌍 | À la recherche des meilleurs bons plans voyage !</string>
     <string name="edit_profile_button">Modifier le profil</string>
     <string name="logout_button">Déconnexion</string>
+    <string name="follow_button">Suivre</string>
+    <string name="unfollow_button">Ne plus suivre</string>
     <string name="create_post_screen_preview_text">Écran de création de post</string>
 
     <!-- Settings Screen -->

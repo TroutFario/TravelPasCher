@@ -1,9 +1,8 @@
 package fr.troubidoo.travelpascher.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import android.net.Uri
-import com.google.android.libraries.places.api.Places
 import com.google.android.libraries.places.api.model.CircularBounds
 import com.google.android.libraries.places.api.model.Place
 import com.google.android.libraries.places.api.net.SearchNearbyRequest
@@ -18,6 +17,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import java.lang.Math.toRadians
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 // Modèles de données pour l'UI (Directement depuis Firebase)
 data class UiPost(
@@ -31,13 +35,49 @@ data class UiPost(
     val likedBy: List<String> = emptyList(),
     val latitude: Double? = null,
     val longitude: Double? = null
-)
+) {
+    companion object {
+        fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiPost? {
+            return try {
+                UiPost(
+                    id = doc.id,
+                    userId = doc.getString("userId") ?: "",
+                    username = doc.getString("username") ?: "Anonymous",
+                    authorProfileImageUrl = doc.getString("authorProfileImageUrl") ?: "",
+                    location = doc.getString("location") ?: "",
+                    imageUrl = doc.getString("imageUrl") ?: "",
+                    createdAt = doc.getLong("createdAt") ?: 0L,
+                    likedBy = (doc.get("likedBy") as? List<*>)?.filterIsInstance<String>()
+                        ?: emptyList(),
+                    latitude = (doc.get("latitude") as? Number)?.toDouble(),
+                    longitude = (doc.get("longitude") as? Number)?.toDouble()
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiPost: ${doc.id}", e)
+                null
+            }
+        }
+    }
+}
 
 data class UiStory(
-    val userId: String,
-    val username: String,
-    val imageUrl: String
-)
+    val userId: String, val username: String, val imageUrl: String
+) {
+    companion object {
+        fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiStory? {
+            return try {
+                UiStory(
+                    userId = doc.getString("userId") ?: "",
+                    username = doc.getString("username") ?: "Anonymous",
+                    imageUrl = doc.getString("imageUrl") ?: ""
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiStory: ${doc.id}", e)
+                null
+            }
+        }
+    }
+}
 
 data class UiUser(
     val id: String,
@@ -46,9 +86,36 @@ data class UiUser(
     val firstName: String,
     val lastName: String,
     val bio: String = "",
+    val preferredCategories: List<String> = emptyList(),
     val profileImageUrl: String = "",
-    val preferredCategories: List<String> = emptyList()
-)
+    val followers: List<String> = emptyList(),
+    val following: List<String> = emptyList()
+) {
+    companion object {
+        fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiUser? {
+            return try {
+                UiUser(
+                    id = doc.getString("id") ?: doc.id,
+                    username = doc.getString("username") ?: "",
+                    email = doc.getString("email") ?: "",
+                    firstName = doc.getString("firstName") ?: "",
+                    lastName = doc.getString("lastName") ?: "",
+                    bio = doc.getString("bio") ?: "",
+                    preferredCategories = (doc.get("preferredCategories") as? List<*>)?.filterIsInstance<String>()
+                        ?: emptyList(),
+                    profileImageUrl = doc.getString("profileImageUrl") ?: "",
+                    followers = (doc.get("followers") as? List<*>)?.filterIsInstance<String>()
+                        ?: emptyList(),
+                    following = (doc.get("following") as? List<*>)?.filterIsInstance<String>()
+                        ?: emptyList()
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiUser: ${doc.id}", e)
+                null
+            }
+        }
+    }
+}
 
 data class UiComment(
     val id: String,
@@ -57,7 +124,25 @@ data class UiComment(
     val userProfileImageUrl: String = "",
     val text: String,
     val createdAt: Long
-)
+) {
+    companion object {
+        fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiComment? {
+            return try {
+                UiComment(
+                    id = doc.id,
+                    userId = doc.getString("userId") ?: "",
+                    username = doc.getString("username") ?: "Anonymous",
+                    userProfileImageUrl = doc.getString("userProfileImageUrl") ?: "",
+                    text = doc.getString("text") ?: "",
+                    createdAt = doc.getLong("createdAt") ?: 0L
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiComment: ${doc.id}", e)
+                null
+            }
+        }
+    }
+}
 
 // Modèles pour les Itinéraires et Activités
 data class UiItinerary(
@@ -72,7 +157,34 @@ data class UiItinerary(
     val longitude: Double? = null,
     val startDate: String = "",
     val endDate: String = ""
-)
+) {
+    companion object {
+        fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiItinerary? {
+            return try {
+                @Suppress("UNCHECKED_CAST") val activitiesData =
+                    doc.get("activities") as? List<Map<String, Any>> ?: emptyList()
+                val activities = activitiesData.mapNotNull { UiActivity.fromMap(it) }
+
+                UiItinerary(
+                    id = doc.id,
+                    userId = doc.getString("userId") ?: "",
+                    title = doc.getString("title") ?: "",
+                    description = doc.getString("description") ?: "",
+                    destination = doc.getString("destination") ?: "",
+                    createdAt = doc.getLong("createdAt") ?: 0L,
+                    activities = activities,
+                    latitude = (doc.get("latitude") as? Number)?.toDouble(),
+                    longitude = (doc.get("longitude") as? Number)?.toDouble(),
+                    startDate = doc.getString("startDate") ?: "",
+                    endDate = doc.getString("endDate") ?: ""
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiItinerary: ${doc.id}", e)
+                null
+            }
+        }
+    }
+}
 
 data class UiActivity(
     val id: String = "",
@@ -84,7 +196,28 @@ data class UiActivity(
     val latitude: Double? = null,
     val longitude: Double? = null,
     val price: Double? = null
-)
+) {
+    companion object {
+        fun fromMap(map: Map<String, Any>): UiActivity? {
+            return try {
+                UiActivity(
+                    id = map["id"]?.toString() ?: "",
+                    name = map["name"]?.toString() ?: "",
+                    description = map["description"]?.toString() ?: "",
+                    location = map["location"]?.toString() ?: "",
+                    category = map["category"]?.toString() ?: "",
+                    rating = (map["rating"] as? Number)?.toDouble() ?: 0.0,
+                    latitude = (map["latitude"] as? Number)?.toDouble(),
+                    longitude = (map["longitude"] as? Number)?.toDouble(),
+                    price = (map["price"] as? Number)?.toDouble()
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("FACTORY", "Error parsing UiActivity from map", e)
+                null
+            }
+        }
+    }
+}
 
 class FeedViewModel : ViewModel() {
 
@@ -108,6 +241,13 @@ class FeedViewModel : ViewModel() {
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
+    // Profil d'un autre utilisateur sélectionné
+    private val _selectedUserProfile = MutableStateFlow<UiUser?>(null)
+    val selectedUserProfile = _selectedUserProfile.asStateFlow()
+
+    private val _selectedUserPosts = MutableStateFlow<List<UiPost>>(emptyList())
+    val selectedUserPosts = _selectedUserPosts.asStateFlow()
+
     // Liste des commentaires pour le post actuellement ouvert
     private val _currentPostComments = MutableStateFlow<List<UiComment>>(emptyList())
     val currentPostComments = _currentPostComments.asStateFlow()
@@ -126,7 +266,6 @@ class FeedViewModel : ViewModel() {
         listenToFirestoreStories()
         listenToUserData()
         listenToItineraries()
-        fetchGlobalActivities()
     }
 
     private fun listenToUserData() {
@@ -134,25 +273,15 @@ class FeedViewModel : ViewModel() {
             auth.addAuthStateListener { firebaseAuth ->
                 val user = firebaseAuth.currentUser
                 _currentUser.value = user
-                
+
                 // On relance l'écoute des itinéraires à chaque changement d'utilisateur
                 listenToItineraries()
 
                 if (user != null) {
-                    db.collection("users").document(user.uid)
-                        .addSnapshotListener { snapshot, e ->
+                    db.collection("users").document(user.uid).addSnapshotListener { snapshot, e ->
                             if (e != null) return@addSnapshotListener
                             if (snapshot != null && snapshot.exists()) {
-                                _userData.value = UiUser(
-                                    id = snapshot.getString("id") ?: "",
-                                    username = snapshot.getString("username") ?: "",
-                                    email = snapshot.getString("email") ?: "",
-                                    firstName = snapshot.getString("firstName") ?: "",
-                                    lastName = snapshot.getString("lastName") ?: "",
-                                    bio = snapshot.getString("bio") ?: "",
-                                    profileImageUrl = snapshot.getString("profileImageUrl") ?: "",
-                                    preferredCategories = snapshot.get("preferredCategories") as? List<String> ?: emptyList()
-                                )
+                                _userData.value = UiUser.fromSnapshot(snapshot)
                             }
                         }
                 } else {
@@ -169,19 +298,7 @@ class FeedViewModel : ViewModel() {
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
-                        @Suppress("UNCHECKED_CAST")
-                        UiPost(
-                            id = doc.id,
-                            userId = doc.get("userId")?.toString() ?: "",
-                            username = doc.getString("username") ?: "Anonymous",
-                            authorProfileImageUrl = doc.getString("authorProfileImageUrl") ?: "",
-                            location = doc.getString("location") ?: "",
-                            imageUrl = doc.getString("imageUrl") ?: "",
-                            createdAt = doc.getLong("createdAt") ?: 0L,
-                            likedBy = doc.get("likedBy") as? List<String> ?: emptyList(),
-                            latitude = (doc.get("latitude") as? Number)?.toDouble(),
-                            longitude = (doc.get("longitude") as? Number)?.toDouble()
-                        )
+                        UiPost.fromSnapshot(doc)
                     }
                     _posts.value = list
                 }
@@ -189,16 +306,11 @@ class FeedViewModel : ViewModel() {
     }
 
     private fun listenToFirestoreStories() {
-        db.collection("stories")
-            .addSnapshotListener { snapshots, e ->
+        db.collection("stories").addSnapshotListener { snapshots, e ->
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
-                        UiStory(
-                            userId = doc.get("userId")?.toString() ?: "",
-                            username = doc.getString("username") ?: "Anonymous",
-                            imageUrl = doc.getString("imageUrl") ?: ""
-                        )
+                        UiStory.fromSnapshot(doc)
                     }
                     _stories.value = list
                 }
@@ -222,7 +334,7 @@ class FeedViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 var imageUrl = ""
-                
+
                 // 1. Upload de l'image si elle existe
                 if (imageUri != null) {
                     val fileName = "posts/${user.uid}_${System.currentTimeMillis()}.jpg"
@@ -233,10 +345,8 @@ class FeedViewModel : ViewModel() {
 
                 // 2. Récupération des infos actuelles de l'utilisateur (pseudo et photo)
                 val currentUsername = _userData.value?.username?.ifBlank { null }
-                    ?: user.displayName?.ifBlank { null }
-                    ?: user.email
-                    ?: "Anonymous"
-                
+                    ?: user.displayName?.ifBlank { null } ?: user.email ?: "Anonymous"
+
                 val authorProfileImageUrl = _userData.value?.profileImageUrl ?: ""
 
                 // 3. Création du post dans Firestore
@@ -265,10 +375,7 @@ class FeedViewModel : ViewModel() {
      * Connecte un utilisateur avec Firebase Auth.
      */
     fun loginUser(
-        email: String,
-        password: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
+        email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit
     ) {
         viewModelScope.launch {
             try {
@@ -308,7 +415,7 @@ class FeedViewModel : ViewModel() {
 
                 if (firebaseUser != null) {
                     var profileImageUrl = ""
-                    
+
                     // 2. Upload de la photo de profil si elle existe
                     if (profileImageUri != null) {
                         val fileName = "profiles/${firebaseUser.uid}.jpg"
@@ -359,11 +466,19 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    fun updateUserProfile(firstName: String, lastName: String, bio: String, preferredCategories: List<String> = emptyList(), newProfileImageUri: Uri? = null, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+    fun updateUserProfile(
+        firstName: String,
+        lastName: String,
+        bio: String,
+        preferredCategories: List<String> = emptyList(),
+        newProfileImageUri: Uri? = null,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
         val user = auth.currentUser ?: return
         viewModelScope.launch {
             try {
-                val updates = hashMapOf<String, Any>(
+                val updates = hashMapOf(
                     "firstName" to firstName,
                     "lastName" to lastName,
                     "bio" to bio,
@@ -417,7 +532,12 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    fun updatePost(postId: String, newLocation: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+    fun updatePost(
+        postId: String,
+        newLocation: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
         viewModelScope.launch {
             try {
                 db.collection("posts").document(postId).update("location", newLocation).await()
@@ -428,7 +548,9 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    fun deletePost(postId: String, imageUrl: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+    fun deletePost(
+        postId: String, imageUrl: String, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}
+    ) {
         viewModelScope.launch {
             try {
                 // 1. Supprimer d'abord le document Firestore
@@ -460,14 +582,7 @@ class FeedViewModel : ViewModel() {
                 if (e != null) return@addSnapshotListener
                 if (snapshots != null) {
                     val list = snapshots.documents.mapNotNull { doc ->
-                        UiComment(
-                            id = doc.id,
-                            userId = doc.getString("userId") ?: "",
-                            username = doc.getString("username") ?: "Anonymous",
-                            userProfileImageUrl = doc.getString("userProfileImageUrl") ?: "",
-                            text = doc.getString("text") ?: "",
-                            createdAt = doc.getLong("createdAt") ?: 0L
-                        )
+                        UiComment.fromSnapshot(doc)
                     }
                     _currentPostComments.value = list
                 }
@@ -481,7 +596,8 @@ class FeedViewModel : ViewModel() {
 
     fun addComment(postId: String, text: String) {
         val user = auth.currentUser ?: return
-        val username = _userData.value?.username?.ifBlank { null } ?: user.displayName ?: "Anonymous"
+        val username =
+            _userData.value?.username?.ifBlank { null } ?: user.displayName ?: "Anonymous"
         val profileUrl = _userData.value?.profileImageUrl ?: ""
 
         val commentData = hashMapOf(
@@ -494,7 +610,8 @@ class FeedViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                db.collection("posts").document(postId).collection("comments").add(commentData).await()
+                db.collection("posts").document(postId).collection("comments").add(commentData)
+                    .await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -523,15 +640,87 @@ class FeedViewModel : ViewModel() {
         }
     }
 
+    // --- Gestion des Profils ---
+
+    fun fetchUserProfile(userId: String) {
+        viewModelScope.launch {
+            try {
+                // Fetch user data
+                val userDoc = db.collection("users").document(userId).get().await()
+                if (userDoc.exists()) {
+                    _selectedUserProfile.value = UiUser.fromSnapshot(userDoc)
+                }
+
+                // Fetch user posts
+                val postsSnapshot = db.collection("posts").whereEqualTo("userId", userId)
+                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get().await()
+
+                _selectedUserPosts.value = postsSnapshot.documents.mapNotNull { doc ->
+                    UiPost.fromSnapshot(doc)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun clearSelectedUserProfile() {
+        _selectedUserProfile.value = null
+        _selectedUserPosts.value = emptyList()
+    }
+
+    fun toggleFollow(targetUserId: String) {
+        val currentUserId = auth.currentUser?.uid ?: return
+        if (currentUserId == targetUserId) return
+
+        viewModelScope.launch {
+            try {
+                val currentUserRef = db.collection("users").document(currentUserId)
+                val targetUserRef = db.collection("users").document(targetUserId)
+
+                val targetUserDoc = targetUserRef.get().await()
+                val followers =
+                    @Suppress("UNCHECKED_CAST") (targetUserDoc.get("followers") as? List<String>
+                        ?: emptyList())
+                val isFollowing = followers.contains(currentUserId)
+
+                db.runTransaction { transaction ->
+                    if (isFollowing) {
+                        transaction.update(
+                            currentUserRef, "following", FieldValue.arrayRemove(targetUserId)
+                        )
+                        transaction.update(
+                            targetUserRef, "followers", FieldValue.arrayRemove(currentUserId)
+                        )
+                    } else {
+                        transaction.update(
+                            currentUserRef, "following", FieldValue.arrayUnion(targetUserId)
+                        )
+                        transaction.update(
+                            targetUserRef, "followers", FieldValue.arrayUnion(currentUserId)
+                        )
+                    }
+                }.await()
+
+                // Refresh the profile if it's the one currently viewed
+                if (_selectedUserProfile.value?.id == targetUserId) {
+                    fetchUserProfile(targetUserId)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     // --- Gestion des Itinéraires ---
 
     private fun listenToItineraries() {
         val user = auth.currentUser
         itinerariesListener?.remove()
-        
+
         if (user != null) {
-            itinerariesListener = db.collection("itineraries")
-                .whereEqualTo("userId", user.uid)
+            itinerariesListener = db.collection("itineraries").whereEqualTo("userId", user.uid)
                 .addSnapshotListener { snapshots, e ->
                     if (e != null) {
                         android.util.Log.e("FIRESTORE", "Listen failed", e)
@@ -539,33 +728,7 @@ class FeedViewModel : ViewModel() {
                     }
                     if (snapshots != null) {
                         val list = snapshots.documents.mapNotNull { doc ->
-                            val activitiesData = doc.get("activities") as? List<Map<String, Any>> ?: emptyList()
-                            val activities = activitiesData.map { act ->
-                                UiActivity(
-                                    id = act["id"]?.toString() ?: "",
-                                    name = act["name"]?.toString() ?: "",
-                                    description = act["description"]?.toString() ?: "",
-                                    location = act["location"]?.toString() ?: "",
-                                    category = act["category"]?.toString() ?: "",
-                                    rating = (act["rating"] as? Number)?.toDouble() ?: 0.0,
-                                    latitude = (act["latitude"] as? Number)?.toDouble(),
-                                    longitude = (act["longitude"] as? Number)?.toDouble(),
-                                    price = (act["price"] as? Number)?.toDouble()
-                                )
-                            }
-                            UiItinerary(
-                                id = doc.id,
-                                userId = doc.getString("userId") ?: "",
-                                title = doc.getString("title") ?: "",
-                                description = doc.getString("description") ?: "",
-                                destination = doc.getString("destination") ?: "",
-                                createdAt = doc.getLong("createdAt") ?: 0L,
-                                activities = activities,
-                                latitude = (doc.get("latitude") as? Number)?.toDouble(),
-                                longitude = (doc.get("longitude") as? Number)?.toDouble(),
-                                startDate = doc.getString("startDate") ?: "",
-                                endDate = doc.getString("endDate") ?: ""
-                            )
+                            UiItinerary.fromSnapshot(doc)
                         }.sortedByDescending { it.createdAt }
                         _itineraries.value = list
                     }
@@ -598,7 +761,7 @@ class FeedViewModel : ViewModel() {
             "endDate" to endDate,
             "activities" to activities.map {
                 hashMapOf(
-                    "id" to if (it.id.isEmpty()) java.util.UUID.randomUUID().toString() else it.id,
+                    "id" to it.id.ifEmpty { java.util.UUID.randomUUID().toString() },
                     "name" to it.name,
                     "description" to it.description,
                     "location" to it.location,
@@ -608,8 +771,7 @@ class FeedViewModel : ViewModel() {
                     "longitude" to it.longitude,
                     "price" to it.price
                 )
-            }
-        )
+            })
 
         viewModelScope.launch {
             try {
@@ -638,7 +800,7 @@ class FeedViewModel : ViewModel() {
             try {
                 _isRefreshing.value = true
                 val activityData = hashMapOf(
-                    "id" to if (activity.id.isEmpty()) java.util.UUID.randomUUID().toString() else activity.id,
+                    "id" to activity.id.ifEmpty { java.util.UUID.randomUUID().toString() },
                     "name" to activity.name,
                     "description" to activity.description,
                     "location" to activity.location,
@@ -685,19 +847,12 @@ class FeedViewModel : ViewModel() {
 
     fun searchActivitiesNearby(lat: Double, lon: Double, type: String? = null) {
         viewModelScope.launch {
-            try {
-                _isRefreshing.value = true
-                val results = fetchActivitiesFromGoogle(lat, lon, type)
-                if (results.isNotEmpty()) {
-                    _globalActivities.value = results
-                } else {
-                    fetchGlobalActivities()
-                }
-                _isRefreshing.value = false
-            } catch (e: Exception) {
-                fetchGlobalActivities()
-                _isRefreshing.value = false
+            _isRefreshing.value = true
+            val results = fetchActivitiesFromGoogle(lat, lon, type)
+            if (results.isNotEmpty()) {
+                _globalActivities.value = results
             }
+            _isRefreshing.value = false
         }
     }
 
@@ -715,24 +870,26 @@ class FeedViewModel : ViewModel() {
         viewModelScope.launch {
             try {
                 _isRefreshing.value = true
-                
+
                 // 1. Durée du voyage
                 val durationInDays = calculateDurationInDays(startDate, endDate)
                 val maxTotalCapacity = durationInDays * 3
-                
+
                 // 2. Recherche d'activités via Google Places
                 val nearbyActivities = fetchActivitiesFromGoogle(lat, lon)
-                
+
                 // 3. Filtrer et scorer selon les préférences
                 val userPrefs = _userData.value?.preferredCategories ?: emptyList()
                 val scoredActivities = nearbyActivities.map { act ->
-                    val dist = calculateDistance(lat, lon, act.latitude ?: 0.0, act.longitude ?: 0.0)
+                    val dist =
+                        calculateDistance(lat, lon, act.latitude ?: 0.0, act.longitude ?: 0.0)
                     // On vérifie si la catégorie de l'activité (ou ses types Google) matchent les prefs
-                    val isPreferred = userPrefs.any { pref -> act.category.contains(pref, ignoreCase = true) }
+                    val isPreferred =
+                        userPrefs.any { pref -> act.category.contains(pref, ignoreCase = true) }
                     val score = dist * (if (isPreferred) 0.5 else 1.0)
                     Triple(act, dist, score)
                 }.sortedBy { it.third }
-                
+
                 // 4. Sélection intelligente
                 val selectedActivities = mutableListOf<UiActivity>()
                 var currentUsedCapacity = 0
@@ -745,20 +902,30 @@ class FeedViewModel : ViewModel() {
                         else -> 1
                     }
 
-                    val isMuseum = activity.category.lowercase().contains("museum") || activity.category.lowercase().contains("musée")
+                    val isMuseum = activity.category.lowercase()
+                        .contains("museum") || activity.category.lowercase().contains("musée")
                     val canAddMuseum = !isMuseum || museumCount < durationInDays
-                    
+
                     if (currentUsedCapacity + cost <= maxTotalCapacity && canAddMuseum) {
                         selectedActivities.add(activity)
                         currentUsedCapacity += cost
                         if (cost == 2) museumCount++
                     }
-                    
+
                     if (currentUsedCapacity >= maxTotalCapacity) break
                 }
 
                 // 5. Créer le parcours
-                addItinerary(title, description, destination, selectedActivities, lat, lon, startDate, endDate)
+                addItinerary(
+                    title,
+                    description,
+                    destination,
+                    selectedActivities,
+                    lat,
+                    lon,
+                    startDate,
+                    endDate
+                )
                 _isRefreshing.value = false
             } catch (e: Exception) {
                 android.util.Log.e("PLACES", "Error generating itinerary", e)
@@ -767,10 +934,12 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    private suspend fun fetchActivitiesFromGoogle(lat: Double, lon: Double, specificType: String? = null): List<UiActivity> {
-        val context = com.google.firebase.Firebase.auth.app.applicationContext
+    private suspend fun fetchActivitiesFromGoogle(
+        lat: Double, lon: Double, specificType: String? = null
+    ): List<UiActivity> {
+        val context = Firebase.auth.app.applicationContext
         val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
-        
+
         val placeFields = listOf(
             Place.Field.ID,
             Place.Field.DISPLAY_NAME,
@@ -785,14 +954,15 @@ class FeedViewModel : ViewModel() {
 
         val allResults = mutableListOf<UiActivity>()
         // Si un type est spécifié, on n'interroge que lui, sinon toute la liste
-        val types = if (specificType != null) listOf(specificType) 
-                    else listOf("tourist_attraction", "museum", "park", "restaurant", "cafe", "lodging", "shopping_mall")
+        val types = if (specificType != null) listOf(specificType)
+        else listOf(
+            "tourist_attraction", "museum", "park", "restaurant", "cafe", "lodging", "shopping_mall"
+        )
 
         for (type in types) {
-            val request = SearchNearbyRequest.builder(circle, placeFields)
-                .setIncludedTypes(listOf(type))
-                .setMaxResultCount(20)
-                .build()
+            val request =
+                SearchNearbyRequest.builder(circle, placeFields).setIncludedTypes(listOf(type))
+                    .setMaxResultCount(20).build()
 
             try {
                 val response = placesClient.searchNearby(request).await()
@@ -818,55 +988,28 @@ class FeedViewModel : ViewModel() {
     }
 
     private fun calculateDurationInDays(start: String, end: String): Int {
-        return try {
-            val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
-            val startDate = sdf.parse(start)
-            val endDate = sdf.parse(end)
-            if (startDate != null && endDate != null) {
-                val diff = endDate.time - startDate.time
-                val days = (diff / (1000 * 60 * 60 * 24)).toInt() + 1
-                if (days > 0) days else 1
-            } else 1
-        } catch (e: Exception) {
-            1 // Par défaut 1 jour si les dates sont mal saisies
+        val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+        val startDate = sdf.parse(start)
+        val endDate = sdf.parse(end)
+
+        return if (startDate != null && endDate != null) {
+            val diff = endDate.time - startDate.time
+            val days = (diff / (1000 * 60 * 60 * 24)).toInt() + 1
+            if (days > 0) days else 1
+        } else {
+            1
         }
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
         val r = 6371 // km
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2)
-        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        val dLat = toRadians(lat2 - lat1)
+        val dLon = toRadians(lon2 - lon1)
+        val a = sin(dLat / 2) * sin(dLat / 2) + cos(toRadians(lat1)) * cos(
+            toRadians(lat2)
+        ) * sin(dLon / 2) * sin(dLon / 2)
+        val c = 2 * atan2(sqrt(a), sqrt(1 - a))
         return r * c
     }
 
-    private fun fetchGlobalActivities() {
-        _globalActivities.value = listOf(
-            // Paris
-            UiActivity("g1", "Tour Eiffel", "Monument emblématique", "Paris", "Musée", 4.8, 48.8584, 2.2945, 25.0),
-            UiActivity("g2", "Le Louvre", "Musée d'art célèbre", "Paris", "Musée", 4.7, 48.8606, 2.3376, 22.0),
-            UiActivity("g3", "L'As du Fallafel", "Célèbre street food", "Paris", "Restaurant", 4.5, 48.8575, 2.3591, 12.0),
-            UiActivity("g7", "Montmartre & Sacré-Cœur", "Vue panoramique", "Paris", "Parc", 4.9, 48.8867, 2.3431, 0.0),
-            UiActivity("g8", "Boulangerie Utopie", "Meilleurs croissants", "Paris", "Restaurant", 4.7, 48.8631, 2.3670, 5.0),
-            
-            // London
-            UiActivity("g4", "Fish & Chips Central", "Authentique repas londonien", "London", "Restaurant", 4.2, 51.5074, -0.1278, 15.0),
-            UiActivity("g5", "British Museum", "Histoire mondiale", "London", "Musée", 4.6, 51.5194, -0.1270, 0.0),
-            UiActivity("g9", "London Eye", "Grande roue", "London", "Autre", 4.5, 51.5033, -0.1195, 30.0),
-            UiActivity("g10", "Hyde Park", "Grand parc royal", "London", "Parc", 4.8, 51.5073, -0.1657, 0.0),
-            
-            // New York
-            UiActivity("g6", "Central Park", "Poumon vert de NY", "New York", "Parc", 4.9, 40.7851, -73.9683, 0.0),
-            UiActivity("g11", "Statue de la Liberté", "Symbole de liberté", "New York", "Musée", 4.7, 40.6892, -74.0445, 20.0),
-            UiActivity("g12", "Joe's Pizza", "Slice classique de NY", "New York", "Restaurant", 4.6, 40.7305, -74.0021, 4.0),
-            
-            // Tokyo
-            UiActivity("g13", "Shibuya Crossing", "Carrefour célèbre", "Tokyo", "Autre", 4.7, 35.6595, 139.7005, 0.0),
-            UiActivity("g14", "Ichiran Ramen", "Ramen personnalisés", "Tokyo", "Restaurant", 4.8, 35.6601, 139.7001, 10.0),
-            UiActivity("g15", "Temple Senso-ji", "Temple historique", "Tokyo", "Musée", 4.8, 35.7148, 139.7967, 0.0)
-        )
-    }
 }

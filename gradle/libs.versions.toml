@@ -12,7 +12,6 @@ kotlin = "2.3.21"
 composeBom = "2026.05.00"
 playServicesSafetynet = "18.1.0"
 playServicesCronet = "18.1.1"
-recaptcha = "18.9.0"
 material = "1.14.0"
 coil = "3.4.0"
 mapsCompose = "8.3.0"
@@ -50,7 +49,6 @@ play-services-cronet = { module = "com.google.android.gms:play-services-cronet",
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 google-places = { group = "com.google.android.libraries.places", name = "places", version.ref = "googlePlaces" }
-recaptcha = { module = "com.google.android.recaptcha:recaptcha", version.ref = "recaptcha" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

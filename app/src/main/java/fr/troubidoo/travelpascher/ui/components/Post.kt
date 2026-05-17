@@ -61,7 +61,8 @@ fun Post(
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
-    onSaveClick: () -> Unit = {}
+    onSaveClick: () -> Unit = {},
+    onProfileClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
     ProvideTextStyle(
@@ -87,7 +88,8 @@ fun Post(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(8.dp)
+                        .clickable { onProfileClick() },
                     verticalAlignment = Alignment.CenterVertically
                 ) {
 

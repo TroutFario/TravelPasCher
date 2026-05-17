@@ -6,9 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +24,7 @@ import fr.troubidoo.travelpascher.ui.components.CommentDialog
 import fr.troubidoo.travelpascher.ui.components.Post
 import fr.troubidoo.travelpascher.viewmodel.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(viewModel: FeedViewModel) {
     // On collecte les StateFlow de Firebase
@@ -34,8 +33,14 @@ fun FeedScreen(viewModel: FeedViewModel) {
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
     val comments by viewModel.currentPostComments.collectAsState()
+    val selectedUserProfile by viewModel.selectedUserProfile.collectAsState()
+    val selectedUserPosts by viewModel.selectedUserPosts.collectAsState()
 
     var selectedPostIdForComments by remember { mutableStateOf<String?>(null) }
+    var selectedUserIdForProfile by remember { mutableStateOf<String?>(null) }
+    var selectedPostForDetail by remember { mutableStateOf<UiPost?>(null) }
+    
+    val sheetState = rememberModalBottomSheetState()
     
     FeedScreenContent(
         stories = stories,
@@ -47,6 +52,10 @@ fun FeedScreen(viewModel: FeedViewModel) {
         onCommentClick = { postId ->
             selectedPostIdForComments = postId
             viewModel.listenToComments(postId)
+        },
+        onProfileClick = { userId ->
+            selectedUserIdForProfile = userId
+            viewModel.fetchUserProfile(userId)
         }
     )
 
@@ -63,6 +72,45 @@ fun FeedScreen(viewModel: FeedViewModel) {
             onUpdateComment = { commentId: String, text: String -> viewModel.updateComment(postId, commentId, text) }
         )
     }
+
+    if (selectedUserIdForProfile != null && selectedUserProfile != null) {
+        ModalBottomSheet(
+            onDismissRequest = {
+                selectedUserIdForProfile = null
+                viewModel.clearSelectedUserProfile()
+            },
+            sheetState = sheetState
+        ) {
+            ProfileContent(
+                username = selectedUserProfile?.username ?: "",
+                email = null, // On ne montre pas l'email des autres
+                bio = selectedUserProfile?.bio ?: "",
+                profileImageUrl = selectedUserProfile?.profileImageUrl ?: "",
+                posts = selectedUserPosts,
+                isCurrentUser = selectedUserProfile?.id == currentUser?.uid,
+                isFollowing = selectedUserProfile?.followers?.contains(currentUser?.uid ?: "") ?: false,
+                followersCount = selectedUserProfile?.followers?.size ?: 0,
+                followingCount = selectedUserProfile?.following?.size ?: 0,
+                onLogout = {},
+                onPostClick = { post -> selectedPostForDetail = post },
+                onSettingsClick = {},
+                onFollowClick = { viewModel.toggleFollow(selectedUserProfile!!.id) }
+            )
+        }
+    }
+
+    selectedPostForDetail?.let { post ->
+        PostDetailDialog(
+            post = post,
+            isOwner = post.userId == currentUser?.uid,
+            onDismiss = { selectedPostForDetail = null },
+            onCommentClick = {
+                selectedPostForDetail = null
+                selectedPostIdForComments = post.id
+                viewModel.listenToComments(post.id)
+            }
+        )
+    }
 }
 
 @Composable
@@ -73,7 +121,8 @@ fun FeedScreenContent(
     currentUserId: String? = null,
     onRefresh: () -> Unit = {},
     onLikeClick: (String) -> Unit = {},
-    onCommentClick: (String) -> Unit = {}
+    onCommentClick: (String) -> Unit = {},
+    onProfileClick: (String) -> Unit = {}
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -100,7 +149,8 @@ fun FeedScreenContent(
                     latitude = post.latitude,
                     longitude = post.longitude,
                     onLikeClick = { onLikeClick(post.id) },
-                    onCommentClick = { onCommentClick(post.id) }
+                    onCommentClick = { onCommentClick(post.id) },
+                    onProfileClick = { onProfileClick(post.userId) }
                 )
             }
         }

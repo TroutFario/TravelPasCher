@@ -13,6 +13,7 @@
     <string name="save">Save</string>
     <string name="my_profile">My Profile</string>
     <string name="globe">Globe</string>
+    <string name="itineraries">Itineraries</string>
     <string name="profile">Profile</string>
     <string name="story">Story</string>
 
@@ -20,7 +21,6 @@
     <string name="share_travel_title">Share a journey</string>
     <string name="selected_image_desc">Selected image</string>
     <string name="add_photo_label">Add a photo</string>
-    <string name="location_hint">Location (e.g. Paris, France)</string>
     <string name="publish_button">Publish</string>
     <string name="error_sending_post">An error occurred while sending</string>
 
@@ -38,6 +38,7 @@
     <string name="profile_bio">Passionate explorer 🌍 | Looking for the best travel deals!</string>
     <string name="edit_profile_button">Edit profile</string>
     <string name="logout_button">Logout</string>
+    <string name="unfollow_button">Unfollow</string>
     <string name="create_post_screen_preview_text">Create Post Screen Preview</string>
 
     <!-- Auth Screen -->
@@ -64,6 +65,7 @@
     <string name="comments_title">Comments</string>
     <string name="add_comment_hint">Add a comment…</string>
     <string name="post_comment_button">Post</string>
+    <string name="follow_button">Follow</string>
 
     <!-- Feed ViewModel / Errors -->
 </resources>

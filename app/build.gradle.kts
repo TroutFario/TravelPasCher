@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "fr.troubidoo.travelpascher"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 38
         versionCode = 1
         versionName = "1.0"
 

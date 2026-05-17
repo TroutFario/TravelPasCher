@@ -28,6 +28,7 @@ import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 import fr.troubidoo.travelpascher.viewmodel.UiActivity
 import fr.troubidoo.travelpascher.viewmodel.UiItinerary
+import java.util.Locale
 import kotlin.math.*
 
 @Composable
@@ -416,7 +417,7 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                     ) {
                         selectedLocation?.let {
                             Marker(
-                                state = MarkerState(position = it),
+                                state = remember(it) { MarkerState(position = it) },
                                 title = "Lieu sélectionné"
                             )
                         }
@@ -425,7 +426,7 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
 
                 if (selectedLocation != null) {
                     Text(
-                        text = "Coordonnées : ${String.format("%.4f", selectedLocation?.latitude)}, ${String.format("%.4f", selectedLocation?.longitude)}",
+                        text = "Coordonnées : ${String.format(Locale.ROOT, "%.4f", selectedLocation?.latitude)}, ${String.format(Locale.ROOT, "%.4f", selectedLocation?.longitude)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )

@@ -55,6 +55,9 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
         bio = userData?.bio ?: stringResource(R.string.profile_bio),
         profileImageUrl = userData?.profileImageUrl ?: "",
         posts = userPosts,
+        isCurrentUser = true,
+        followersCount = userData?.followers?.size ?: 0,
+        followingCount = userData?.following?.size ?: 0,
         onLogout = { viewModel.logout() },
         onPostClick = { profileState = profileState.copy(selectedPost = it) },
         onSettingsClick = onSettingsClick
@@ -63,6 +66,7 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
     profileState.selectedPost?.let { post ->
         PostDetailDialog(
             post = post,
+            isOwner = true,
             onDismiss = { profileState = profileState.copy(selectedPost = null) },
             onUpdate = { newLocation ->
                 viewModel.updatePost(post.id, newLocation)
@@ -73,9 +77,7 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
                 profileState = profileState.copy(selectedPost = null)
             },
             onCommentClick = {
-                // On ferme d'abord le dialogue de détail pour éviter le blocage UI
                 profileState = profileState.copy(selectedPost = null)
-                // Puis on ouvre les commentaires
                 selectedPostIdForComments = post.id
                 viewModel.listenToComments(post.id)
             }
@@ -100,9 +102,10 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
 @Composable
 fun PostDetailDialog(
     post: UiPost,
+    isOwner: Boolean,
     onDismiss: () -> Unit,
-    onUpdate: (String) -> Unit,
-    onDelete: () -> Unit,
+    onUpdate: (String) -> Unit = {},
+    onDelete: () -> Unit = {},
     onCommentClick: () -> Unit
 ) {
     var isEditing by remember { mutableStateOf(false) }
@@ -169,14 +172,20 @@ fun PostDetailDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        IconButton(onClick = { isEditing = true }) {
-                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_action), tint = MaterialTheme.colorScheme.primary)
+                        if (isOwner) {
+                            IconButton(onClick = { isEditing = true }) {
+                                Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_action), tint = MaterialTheme.colorScheme.primary)
+                            }
                         }
+                        
                         IconButton(onClick = onCommentClick) {
                             Icon(Icons.Default.ChatBubbleOutline, contentDescription = stringResource(R.string.comment), tint = MaterialTheme.colorScheme.primary)
                         }
-                        IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_action), tint = MaterialTheme.colorScheme.error)
+
+                        if (isOwner) {
+                            IconButton(onClick = onDelete) {
+                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_action), tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                 }
@@ -192,12 +201,21 @@ fun ProfileContent(
     bio: String,
     profileImageUrl: String,
     posts: List<UiPost>,
-    onLogout: () -> Unit,
-    onPostClick: (UiPost) -> Unit,
-    onSettingsClick: () -> Unit
+    isCurrentUser: Boolean = true,
+    isFollowing: Boolean = false,
+    followersCount: Int = 0,
+    followingCount: Int = 0,
+    onLogout: () -> Unit = {},
+    onPostClick: (UiPost) -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    onFollowClick: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        ProfileHeader(username, email, bio, profileImageUrl, posts.size, onLogout, onSettingsClick)
+        ProfileHeader(
+            username, email, bio, profileImageUrl, posts.size,
+            isCurrentUser, isFollowing, followersCount, followingCount,
+            onLogout, onSettingsClick, onFollowClick
+        )
         
         HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
         
@@ -243,8 +261,13 @@ fun ProfileHeader(
     bio: String,
     profileImageUrl: String,
     postCount: Int,
-    onLogout: () -> Unit,
-    onSettingsClick: () -> Unit
+    isCurrentUser: Boolean = true,
+    isFollowing: Boolean = false,
+    followersCount: Int = 0,
+    followingCount: Int = 0,
+    onLogout: () -> Unit = {},
+    onSettingsClick: () -> Unit = {},
+    onFollowClick: () -> Unit = {}
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
         Row(
@@ -281,8 +304,8 @@ fun ProfileHeader(
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 ProfileStat(number = postCount.toString(), label = stringResource(R.string.stats_posts))
-                ProfileStat(number = "124", label = stringResource(R.string.stats_followers))
-                ProfileStat(number = "89", label = stringResource(R.string.stats_following))
+                ProfileStat(number = followersCount.toString(), label = stringResource(R.string.stats_followers))
+                ProfileStat(number = followingCount.toString(), label = stringResource(R.string.stats_following))
             }
         }
         
@@ -307,19 +330,34 @@ fun ProfileHeader(
         
         Spacer(modifier = Modifier.height(16.dp))
         
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
-                onClick = onSettingsClick,
-                modifier = Modifier.weight(1f),
-                shape = MaterialTheme.shapes.small
-            ) {
-                Text(stringResource(R.string.edit_profile_button))
+        if (isCurrentUser) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(
+                    onClick = onSettingsClick,
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(stringResource(R.string.edit_profile_button))
+                }
+                OutlinedButton(
+                    onClick = onLogout,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(stringResource(R.string.logout_button))
+                }
             }
-            OutlinedButton(
-                onClick = onLogout,
-                shape = MaterialTheme.shapes.small
+        } else {
+            Button(
+                onClick = onFollowClick,
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.small,
+                colors = if (isFollowing) {
+                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                } else {
+                    ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                }
             ) {
-                Text(stringResource(R.string.logout_button))
+                Text(if (isFollowing) stringResource(R.string.unfollow_button) else stringResource(R.string.follow_button))
             }
         }
     }
