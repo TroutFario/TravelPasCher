@@ -6,7 +6,17 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -14,8 +24,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Check
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,8 +82,7 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             )
         )
     }
-    
-    // Check username availability with debounce
+
     LaunchedEffect(settingsState.username) {
         if (settingsState.username != userData?.username) {
             delay(500)
@@ -68,7 +91,7 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             viewModel.resetUsernameAvailability()
         }
     }
-    
+
     val successMessage = stringResource(R.string.profile_updated_success)
     val scrollState = rememberScrollState()
 
@@ -100,7 +123,10 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back_button)
+                )
             }
             Text(
                 text = stringResource(R.string.settings_title),
@@ -110,7 +136,6 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // Zone de sélection de photo de profil
         Box(
             modifier = Modifier
                 .size(100.dp)
@@ -147,7 +172,7 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
 
         val usernameColor = when {
             settingsState.username == userData?.username -> MaterialTheme.colorScheme.outline
-            isUsernameAvailable == true -> Color(0xFF4CAF50) // Vert
+            isUsernameAvailable == true -> Color(0xFF4CAF50)
             isUsernameAvailable == false -> MaterialTheme.colorScheme.error
             else -> MaterialTheme.colorScheme.outline
         }
@@ -219,7 +244,6 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Grille de sélection des catégories
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -238,7 +262,13 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                     },
                     label = { Text(label) },
                     leadingIcon = if (isSelected) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                        {
+                            Icon(
+                                Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     } else null
                 )
             }
@@ -279,14 +309,17 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !settingsState.isLoading && 
-                      settingsState.firstName.isNotBlank() && 
-                      settingsState.lastName.isNotBlank() &&
-                      settingsState.username.isNotBlank() &&
-                      (settingsState.username == userData?.username || isUsernameAvailable == true)
+            enabled = !settingsState.isLoading &&
+                    settingsState.firstName.isNotBlank() &&
+                    settingsState.lastName.isNotBlank() &&
+                    settingsState.username.isNotBlank() &&
+                    (settingsState.username == userData?.username || isUsernameAvailable == true)
         ) {
             if (settingsState.isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             } else {
                 Text(stringResource(R.string.save_profile_button))
             }

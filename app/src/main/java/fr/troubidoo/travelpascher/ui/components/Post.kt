@@ -18,9 +18,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.ImageNotSupported
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -51,10 +53,12 @@ import fr.troubidoo.travelpascher.R
 fun Post(
     username: String,
     location: String,
+    description: String = "",
     time: Long,
     imageUrl: String,
     authorProfileImageUrl: String = "",
     isLiked: Boolean = false,
+    isBookmarked: Boolean = false,
     likeCount: Int = 0,
     commentCount: Int = 0,
     latitude: Double? = null,
@@ -85,7 +89,6 @@ fun Post(
         ) {
             Column {
 
-                // ---------------- HEADER ----------------
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -145,16 +148,13 @@ fun Post(
 
                             Text(
                                 text = DateUtils.getRelativeTimeSpanString(
-                                    time,
-                                    System.currentTimeMillis(),
-                                    DateUtils.MINUTE_IN_MILLIS)
-                                    .toString(),
+                                    time, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS
+                                ).toString(),
                             )
                         }
                     }
                 }
 
-                // ---------------- IMAGE ----------------
                 SubcomposeAsyncImage(
                     model = imageUrl,
                     contentDescription = stringResource(R.string.post_image),
@@ -190,10 +190,16 @@ fun Post(
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
                         }
-                    }
-                )
+                    })
 
-                // ---------------- ACTION BAR ----------------
+                if (description.isNotEmpty()) {
+                    Text(
+                        text = description,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -257,8 +263,9 @@ fun Post(
 
                     IconButton(onClick = onSaveClick) {
                         Icon(
-                            painter = painterResource(R.drawable.outline_bookmark_24),
-                            contentDescription = stringResource(R.string.save)
+                            imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Outlined.BookmarkBorder,
+                            contentDescription = stringResource(R.string.save),
+                            tint = if (isBookmarked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }

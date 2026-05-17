@@ -2,7 +2,18 @@ package fr.troubidoo.travelpascher.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -10,41 +21,80 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Hotel
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Museum
+import androidx.compose.material.icons.filled.Park
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Badge
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.*
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.Marker
+import com.google.maps.android.compose.rememberCameraPositionState
+import com.google.maps.android.compose.rememberUpdatedMarkerState
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 import fr.troubidoo.travelpascher.viewmodel.UiActivity
 import fr.troubidoo.travelpascher.viewmodel.UiItinerary
 import java.util.Locale
-import kotlin.math.*
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 
 @Composable
 fun ItineraryScreen(viewModel: FeedViewModel) {
     val itineraries by viewModel.itineraries.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
-    
-    // On observe une liste d'activités de découverte qui sera mise à jour dynamiquement
+    val currentUser by viewModel.currentUser.collectAsState()
+
     val discoveryActivities by viewModel.globalActivities.collectAsState()
-    
+
     var showAddItineraryDialog by remember { mutableStateOf(false) }
     var selectedItineraryForActivity by remember { mutableStateOf<UiItinerary?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
 
-    // Quand on ouvre le dialogue d'ajout d'activité, on lance la recherche Google
     LaunchedEffect(selectedItineraryForActivity) {
         selectedItineraryForActivity?.let { itinerary ->
             if (itinerary.latitude != null && itinerary.longitude != null) {
@@ -68,10 +118,25 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "Mes Parcours de Voyage",
+                    text = "Découvrir des Parcours",
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.padding(bottom = 16.dp)
+                )
+
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = {
+                        searchQuery = it
+                        viewModel.searchItineraries(it)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    placeholder = { Text("Chercher par destination...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
                 )
 
                 if (itineraries.isEmpty() && !isRefreshing) {
@@ -81,11 +146,18 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         items(itineraries) { itinerary ->
+                            val isOwner = itinerary.userId == currentUser?.uid
                             ItineraryCard(
                                 itinerary = itinerary,
+                                isOwner = isOwner,
                                 onDelete = { viewModel.deleteItinerary(itinerary.id) },
                                 onAddActivity = { selectedItineraryForActivity = itinerary },
-                                onDeleteActivity = { activity -> viewModel.deleteActivityFromItinerary(itinerary.id, activity) }
+                                onDeleteActivity = { activity ->
+                                    viewModel.deleteActivityFromItinerary(
+                                        itinerary.id,
+                                        activity
+                                    )
+                                }
                             )
                         }
                     }
@@ -93,7 +165,6 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
             }
         }
 
-        // Overlay de chargement
         if (isRefreshing) {
             Box(
                 modifier = Modifier
@@ -140,7 +211,13 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
 }
 
 @Composable
-fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: () -> Unit, onDeleteActivity: (UiActivity) -> Unit) {
+fun ItineraryCard(
+    itinerary: UiItinerary,
+    isOwner: Boolean,
+    onDelete: () -> Unit,
+    onAddActivity: () -> Unit,
+    onDeleteActivity: (UiActivity) -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -156,19 +233,39 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: (
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "Supprimer", tint = MaterialTheme.colorScheme.error)
+                if (isOwner) {
+                    IconButton(onClick = onDelete) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Supprimer",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
             }
-            
+
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    Icons.Default.LocationOn,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = itinerary.destination, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
-                
+                Text(
+                    text = itinerary.destination,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+
                 if (itinerary.startDate.isNotEmpty() || itinerary.endDate.isNotEmpty()) {
                     Spacer(modifier = Modifier.width(12.dp))
-                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                    Icon(
+                        Icons.Default.DateRange,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "${itinerary.startDate} - ${itinerary.endDate}",
@@ -177,12 +274,12 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: (
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = itinerary.description, style = MaterialTheme.typography.bodyMedium)
-            
+
             Spacer(modifier = Modifier.height(16.dp))
-            
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -193,10 +290,16 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: (
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
                 )
-                TextButton(onClick = onAddActivity) {
-                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Ajouter une activité")
+                if (isOwner) {
+                    TextButton(onClick = onAddActivity) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Ajouter une activité")
+                    }
                 }
             }
 
@@ -209,7 +312,11 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: (
                 )
             } else {
                 itinerary.activities.forEach { activity ->
-                    ActivityItem(activity, onDelete = { onDeleteActivity(activity) })
+                    ActivityItem(
+                        activity,
+                        isOwner = isOwner,
+                        onDelete = { onDeleteActivity(activity) }
+                    )
                 }
             }
         }
@@ -217,7 +324,7 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: (
 }
 
 @Composable
-fun ActivityItem(activity: UiActivity, onDelete: () -> Unit) {
+fun ActivityItem(activity: UiActivity, isOwner: Boolean, onDelete: () -> Unit) {
     val icon = when (activity.category.lowercase()) {
         "restaurant", "food", "café" -> Icons.Default.Restaurant
         "musée", "culture", "museum" -> Icons.Default.Museum
@@ -230,7 +337,10 @@ fun ActivityItem(activity: UiActivity, onDelete: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                RoundedCornerShape(8.dp)
+            )
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -242,7 +352,11 @@ fun ActivityItem(activity: UiActivity, onDelete: () -> Unit) {
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = activity.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = activity.name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold
+            )
             activity.price?.let {
                 Text(
                     text = if (it == 0.0) "Gratuit" else "${it}€",
@@ -254,13 +368,15 @@ fun ActivityItem(activity: UiActivity, onDelete: () -> Unit) {
         Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
             Text(activity.category, style = MaterialTheme.typography.labelSmall)
         }
-        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = "Supprimer l'activité",
-                modifier = Modifier.size(24.dp),
-                tint = MaterialTheme.colorScheme.error
-            )
+        if (isOwner) {
+            IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Supprimer l'activité",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
         }
     }
 }
@@ -271,7 +387,7 @@ fun AddActivityDialog(
     availableActivities: List<UiActivity>,
     onDismiss: () -> Unit,
     onConfirm: (UiActivity) -> Unit,
-    onSearch: (String?) -> Unit // Nouvelle callback pour filtrer par type Google
+    onSearch: (String?) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf<String?>(null) }
@@ -286,7 +402,6 @@ fun AddActivityDialog(
         "lodging" to "Hôtels"
     )
 
-    // Filtrage LOCAL par nom (recherche textuelle)
     val displayedActivities = remember(availableActivities, searchQuery) {
         if (searchQuery.isBlank()) {
             availableActivities
@@ -301,7 +416,6 @@ fun AddActivityDialog(
             Column {
                 Text("Rechercher une activité")
                 Spacer(modifier = Modifier.height(8.dp))
-                // Barre de recherche par nom
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -312,14 +426,13 @@ fun AddActivityDialog(
                     singleLine = true
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                // Filtre par type
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(categoryMap.toList()) { (type, label) ->
                         FilterChip(
                             selected = selectedType == type,
-                            onClick = { 
+                            onClick = {
                                 selectedType = type
-                                onSearch(type) // Déclenche une nouvelle recherche Google
+                                onSearch(type)
                             },
                             label = { Text(label) }
                         )
@@ -334,18 +447,33 @@ fun AddActivityDialog(
                 } else {
                     LazyColumn {
                         items(displayedActivities) { activity ->
-                            val distance = if (itinerary.latitude != null && itinerary.longitude != null && activity.latitude != null && activity.longitude != null) {
-                                calculateDistance(itinerary.latitude, itinerary.longitude, activity.latitude, activity.longitude)
-                            } else null
+                            val distance =
+                                if (itinerary.latitude != null && itinerary.longitude != null && activity.latitude != null && activity.longitude != null) {
+                                    calculateDistance(
+                                        itinerary.latitude,
+                                        itinerary.longitude,
+                                        activity.latitude,
+                                        activity.longitude
+                                    )
+                                } else null
 
                             ListItem(
-                                headlineContent = { Text(activity.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                supportingContent = { 
+                                headlineContent = {
+                                    Text(
+                                        activity.name,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                },
+                                supportingContent = {
                                     Text("${activity.category} • ${if (activity.price == 0.0) "Gratuit" else "${activity.price}€"}")
                                 },
                                 trailingContent = {
                                     if (distance != null) {
-                                        Text("${distance.toInt()} km", style = MaterialTheme.typography.labelSmall)
+                                        Text(
+                                            "${distance.toInt()} km",
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
                                     }
                                 },
                                 modifier = Modifier.clickable { onConfirm(activity) }
@@ -363,7 +491,7 @@ fun AddActivityDialog(
 }
 
 fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-    val r = 6371 // Rayon de la terre en km
+    val r = 6371.0
     val dLat = Math.toRadians(lat2 - lat1)
     val dLon = Math.toRadians(lon2 - lon1)
     val a = sin(dLat / 2) * sin(dLat / 2) +
@@ -374,7 +502,10 @@ fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): D
 }
 
 @Composable
-fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Double?, Double?, String, String, Boolean) -> Unit) {
+fun AddItineraryDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String, Double?, Double?, String, String, Boolean) -> Unit
+) {
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var dest by remember { mutableStateOf("") }
@@ -398,33 +529,60 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.verticalScroll(scrollState, enabled = !isMapInteracting)
             ) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Titre du voyage") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("Destination (Ville)") }, modifier = Modifier.fillMaxWidth())
-                
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Titre du voyage") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = dest,
+                    onValueChange = { dest = it },
+                    label = { Text("Destination (Ville)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(value = startDate, onValueChange = { startDate = it }, label = { Text("Début (JJ/MM)") }, modifier = Modifier.weight(1f))
-                    OutlinedTextField(value = endDate, onValueChange = { endDate = it }, label = { Text("Fin (JJ/MM)") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = startDate,
+                        onValueChange = { startDate = it },
+                        label = { Text("Début (JJ/MM)") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = endDate,
+                        onValueChange = { endDate = it },
+                        label = { Text("Fin (JJ/MM)") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = isSmartMode, onCheckedChange = { isSmartMode = it })
-                    Text("Générer intelligemment (ajoute des activités)", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        "Générer intelligemment (ajoute des activités)",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
 
-                Text("Cliquez sur la carte pour définir le lieu :", style = MaterialTheme.typography.labelMedium)
-                
-                Box(modifier = Modifier
-                    .fillMaxWidth()
-                    .height(250.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .pointerInput(Unit) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                isMapInteracting = event.changes.any { it.pressed }
+                Text(
+                    "Cliquez sur la carte pour définir le lieu :",
+                    style = MaterialTheme.typography.labelMedium
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(250.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .pointerInput(Unit) {
+                            awaitPointerEventScope {
+                                while (true) {
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    isMapInteracting = event.changes.any { it.pressed }
+                                }
                             }
                         }
-                    }
                 ) {
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),
@@ -442,28 +600,40 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
 
                 if (selectedLocation != null) {
                     Text(
-                        text = "Coordonnées : ${String.format(Locale.ROOT, "%.4f", selectedLocation?.latitude)}, ${String.format(Locale.ROOT, "%.4f", selectedLocation?.longitude)}",
+                        text = "Coordonnées : ${
+                            String.format(
+                                Locale.ROOT,
+                                "%.4f",
+                                selectedLocation?.latitude
+                            )
+                        }, ${String.format(Locale.ROOT, "%.4f", selectedLocation?.longitude)}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
 
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(
+                    value = desc,
+                    onValueChange = { desc = it },
+                    label = { Text("Description") },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
             Button(
-                onClick = { 
+                onClick = {
                     onConfirm(
-                        title, 
-                        desc, 
-                        dest, 
-                        selectedLocation?.latitude, 
-                        selectedLocation?.longitude, 
-                        startDate, 
+                        title,
+                        desc,
+                        dest,
+                        selectedLocation?.latitude,
+                        selectedLocation?.longitude,
+                        startDate,
                         endDate,
                         isSmartMode
-                    ) 
+                    )
                 },
                 enabled = title.isNotBlank() && dest.isNotBlank() && selectedLocation != null
             ) { Text("Créer") }
@@ -575,6 +745,7 @@ fun ItineraryScreenPreview() {
                 items(sampleItineraries) { itinerary ->
                     ItineraryCard(
                         itinerary = itinerary,
+                        isOwner = true,
                         onDelete = {},
                         onAddActivity = {},
                         onDeleteActivity = {}

@@ -1,14 +1,34 @@
 package fr.troubidoo.travelpascher.ui.screen
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.*
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -22,33 +42,38 @@ import androidx.compose.ui.unit.sp
 import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.ui.components.CommentDialog
 import fr.troubidoo.travelpascher.ui.components.Post
-import fr.troubidoo.travelpascher.viewmodel.*
+import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
+import fr.troubidoo.travelpascher.viewmodel.UiPost
+import fr.troubidoo.travelpascher.viewmodel.UiStory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedScreen(viewModel: FeedViewModel) {
-    // On collecte les StateFlow de Firebase
     val posts by viewModel.posts.collectAsState()
     val stories by viewModel.stories.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val userData by viewModel.userData.collectAsState()
     val comments by viewModel.currentPostComments.collectAsState()
     val selectedUserProfile by viewModel.selectedUserProfile.collectAsState()
     val selectedUserPosts by viewModel.selectedUserPosts.collectAsState()
+    val selectedUserItineraries by viewModel.selectedUserItineraries.collectAsState()
 
     var selectedPostIdForComments by remember { mutableStateOf<String?>(null) }
     var selectedUserIdForProfile by remember { mutableStateOf<String?>(null) }
     var selectedPostForDetail by remember { mutableStateOf<UiPost?>(null) }
-    
+
     val sheetState = rememberModalBottomSheetState()
-    
+
     FeedScreenContent(
         stories = stories,
         posts = posts,
         isRefreshing = isRefreshing,
         currentUserId = currentUser?.uid,
+        savedPosts = userData?.savedPosts ?: emptyList(),
         onRefresh = { viewModel.refresh() },
         onLikeClick = { postId -> viewModel.toggleLike(postId) },
+        onBookmarkClick = { postId -> viewModel.toggleBookmark(postId) },
         onCommentClick = { postId ->
             selectedPostIdForComments = postId
             viewModel.listenToComments(postId)
@@ -64,29 +89,39 @@ fun FeedScreen(viewModel: FeedViewModel) {
             comments = comments,
             currentUserId = currentUser?.uid,
             onDismiss = {
+                selectedPostIdForComments = null
                 viewModel.stopListeningToComments()
             },
             onSendComment = { text: String -> viewModel.addComment(postId, text) },
             onDeleteComment = { commentId: String -> viewModel.deleteComment(postId, commentId) },
-            onUpdateComment = { commentId: String, text: String -> viewModel.updateComment(postId, commentId, text) }
+            onUpdateComment = { commentId: String, text: String ->
+                viewModel.updateComment(
+                    postId,
+                    commentId,
+                    text
+                )
+            }
         )
     }
 
     if (selectedUserIdForProfile != null && selectedUserProfile != null) {
         ModalBottomSheet(
             onDismissRequest = {
+                selectedUserIdForProfile = null
                 viewModel.clearSelectedUserProfile()
             },
             sheetState = sheetState
         ) {
             ProfileContent(
                 username = selectedUserProfile?.username ?: "",
-                email = null, // On ne montre pas l'email des autres
+                email = null,
                 bio = selectedUserProfile?.bio ?: "",
                 profileImageUrl = selectedUserProfile?.profileImageUrl ?: "",
                 posts = selectedUserPosts,
+                itineraries = selectedUserItineraries,
                 isCurrentUser = selectedUserProfile?.id == currentUser?.uid,
-                isFollowing = selectedUserProfile?.followers?.contains(currentUser?.uid ?: "") ?: false,
+                isFollowing = selectedUserProfile?.followers?.contains(currentUser?.uid ?: "")
+                    ?: false,
                 followersCount = selectedUserProfile?.followers?.size ?: 0,
                 followingCount = selectedUserProfile?.following?.size ?: 0,
                 onLogout = {},
@@ -116,8 +151,10 @@ fun FeedScreenContent(
     posts: List<UiPost>,
     isRefreshing: Boolean = false,
     currentUserId: String? = null,
+    savedPosts: List<String> = emptyList(),
     onRefresh: () -> Unit = {},
     onLikeClick: (String) -> Unit = {},
+    onBookmarkClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = {},
     onProfileClick: (String) -> Unit = {}
 ) {
@@ -138,15 +175,18 @@ fun FeedScreenContent(
                 Post(
                     username = post.username,
                     location = post.location,
+                    description = post.description,
                     time = post.createdAt,
                     imageUrl = post.imageUrl,
                     authorProfileImageUrl = post.authorProfileImageUrl,
                     isLiked = currentUserId != null && post.likedBy.contains(currentUserId),
+                    isBookmarked = savedPosts.contains(post.id),
                     likeCount = post.likedBy.size,
                     commentCount = post.commentCount,
                     latitude = post.latitude,
                     longitude = post.longitude,
                     onLikeClick = { onLikeClick(post.id) },
+                    onSaveClick = { onBookmarkClick(post.id) },
                     onCommentClick = { onCommentClick(post.id) },
                     onProfileClick = { onProfileClick(post.userId) }
                 )
@@ -211,8 +251,26 @@ fun FeedScreenPreview() {
     )
 
     val samplePosts = listOf(
-        UiPost("1", "1", "Traveler1", "", stringResource(R.string.location), "", System.currentTimeMillis()),
-        UiPost("2", "2", "Alice", "", stringResource(R.string.location), "", System.currentTimeMillis() - 3600000)
+        UiPost(
+            "1",
+            "1",
+            "Traveler1",
+            "",
+            stringResource(R.string.location),
+            "",
+            "",
+            System.currentTimeMillis()
+        ),
+        UiPost(
+            "2",
+            "2",
+            "Alice",
+            "",
+            stringResource(R.string.location),
+            "",
+            "",
+            System.currentTimeMillis() - 3600000
+        )
     )
 
     FeedScreenContent(

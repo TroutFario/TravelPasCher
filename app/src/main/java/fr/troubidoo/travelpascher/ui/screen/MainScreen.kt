@@ -1,12 +1,38 @@
 package fr.troubidoo.travelpascher.ui.screen
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Map
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,33 +46,65 @@ import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.ui.screen.auth.AuthScreen
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
-import fr.troubidoo.travelpascher.viewmodel.*
-
-// --- États UI ---
+import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
+import fr.troubidoo.travelpascher.viewmodel.UiPost
+import fr.troubidoo.travelpascher.viewmodel.UiStory
+import fr.troubidoo.travelpascher.viewmodel.UiUser
 
 data class MainUiState(
     val currentTab: Int = 0,
-    val isSettingsVisible: Boolean = false
+    val isSettingsVisible: Boolean = false,
+    val isSavedVisible: Boolean = false,
+    val isSearchVisible: Boolean = false,
+    val searchInitialTab: Int = 0
 )
-
-// --- Composants principaux ---
 
 @Composable
 fun MainScreen(viewModel: FeedViewModel) {
     var uiState by remember { mutableStateOf(MainUiState()) }
     val currentUser by viewModel.currentUser.collectAsState()
     val userData by viewModel.userData.collectAsState()
+    val allPosts by viewModel.posts.collectAsState()
 
     MainScreenContent(
         currentTab = uiState.currentTab,
-        onTabSelected = { uiState = uiState.copy(currentTab = it) },
+        onTabSelected = { uiState = uiState.copy(currentTab = it, isSavedVisible = false, isSearchVisible = false) },
         userData = userData,
-        showBars = !uiState.isSettingsVisible,
+        showBars = !uiState.isSettingsVisible && !uiState.isSavedVisible && !uiState.isSearchVisible,
+        onSavedClick = { uiState = uiState.copy(isSavedVisible = true) },
+        onSearchClick = { 
+            // Ouvre la recherche sur l'onglet le plus pertinent
+            val searchTab = when(uiState.currentTab) {
+                0, 1 -> 1 // Photos
+                3 -> 2 // Parcours
+                4 -> 0 // Voyageurs
+                else -> 0
+            }
+            uiState = uiState.copy(isSearchVisible = true, searchInitialTab = searchTab) 
+        },
         content = {
             if (uiState.isSettingsVisible) {
                 SettingsScreen(
                     viewModel = viewModel,
                     onBack = { uiState = uiState.copy(isSettingsVisible = false) }
+                )
+            } else if (uiState.isSavedVisible) {
+                SavedPostsScreen(
+                    viewModel = viewModel,
+                    onBack = { uiState = uiState.copy(isSavedVisible = false) }
+                )
+            } else if (uiState.isSearchVisible) {
+                SearchScreen(
+                    viewModel = viewModel,
+                    initialTab = uiState.searchInitialTab,
+                    onBack = { uiState = uiState.copy(isSearchVisible = false) },
+                    onUserClick = { userId ->
+                        uiState = uiState.copy(isSearchVisible = false, currentTab = 4)
+                        viewModel.fetchUserProfile(userId)
+                    },
+                    onPostClick = { _ ->
+                        uiState = uiState.copy(isSearchVisible = false)
+                    }
                 )
             } else {
                 when (uiState.currentTab) {
@@ -56,19 +114,26 @@ fun MainScreen(viewModel: FeedViewModel) {
                         viewModel = viewModel,
                         onPostSuccess = { uiState = uiState.copy(currentTab = 0) }
                     )
+
                     3 -> ItineraryScreen(viewModel = viewModel)
                     4 -> {
                         if (currentUser != null) {
                             ProfileScreen(
                                 viewModel = viewModel,
-                                onSettingsClick = { uiState = uiState.copy(isSettingsVisible = true) }
+                                onSettingsClick = {
+                                    uiState = uiState.copy(isSettingsVisible = true)
+                                }
                             )
                         } else {
                             AuthScreen(viewModel = viewModel)
                         }
                     }
+
                     else -> {
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
                             Text(stringResource(R.string.screen_under_development))
                         }
                     }
@@ -85,6 +150,8 @@ fun MainScreenContent(
     onTabSelected: (Int) -> Unit,
     userData: UiUser? = null,
     showBars: Boolean = true,
+    onSavedClick: () -> Unit = {},
+    onSearchClick: () -> Unit = {},
     content: @Composable () -> Unit
 ) {
     Scaffold(
@@ -98,34 +165,14 @@ fun MainScreenContent(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            IconButton(
-                                onClick = { onTabSelected(4) },
-                                modifier = Modifier.size(40.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(CircleShape)
-                                        .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                                        .padding(2.dp)
-                                ) {
-                                    if (userData?.profileImageUrl?.isNotEmpty() == true) {
-                                        AsyncImage(
-                                            model = userData.profileImageUrl,
-                                            contentDescription = stringResource(R.string.my_profile),
-                                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
-                                        Icon(
-                                            painter = painterResource(id = R.drawable.outline_globe_24),
-                                            contentDescription = stringResource(R.string.my_profile),
-                                            modifier = Modifier.fillMaxSize(),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
+                            AsyncImage(
+                                model = R.mipmap.ic_launcher,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape),
+                                contentScale = ContentScale.Crop
+                            )
 
                             Text(
                                 text = stringResource(R.string.app_name),
@@ -135,11 +182,18 @@ fun MainScreenContent(
                         }
                     },
                     actions = {
-                        IconButton(onClick = { onTabSelected(2) }) {
+                        IconButton(onClick = onSearchClick) {
                             Icon(
-                                painter = painterResource(id = R.drawable.outline_send_24),
-                                contentDescription = stringResource(R.string.add_image_button),
-                                modifier = Modifier.size(40.dp)
+                                painter = painterResource(id = R.drawable.outline_search_24),
+                                contentDescription = "Recherche",
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                        IconButton(onClick = onSavedClick) {
+                            Icon(
+                                imageVector = Icons.Default.BookmarkBorder,
+                                contentDescription = "Enregistrements",
+                                modifier = Modifier.size(28.dp)
                             )
                         }
                     },
@@ -168,27 +222,73 @@ fun MainScreenContent(
                         NavigationBarItem(
                             selected = currentTab == 0,
                             onClick = { onTabSelected(0) },
-                            icon = { Icon(painterResource(id = R.drawable.outline_home_24), contentDescription = stringResource(R.string.home_button), modifier = Modifier.size(24.dp)) }
+                            icon = {
+                                Icon(
+                                    painterResource(id = R.drawable.outline_home_24),
+                                    contentDescription = stringResource(R.string.home_button),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = currentTab == 1,
                             onClick = { onTabSelected(1) },
-                            icon = { Icon(painterResource(id = R.drawable.outline_globe_24), contentDescription = stringResource(R.string.globe), modifier = Modifier.size(24.dp)) }
+                            icon = {
+                                Icon(
+                                    painterResource(id = R.drawable.outline_globe_24),
+                                    contentDescription = stringResource(R.string.globe),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = currentTab == 2,
                             onClick = { onTabSelected(2) },
-                            icon = { Icon(painterResource(id = R.drawable.outline_add_photo_alternate_24), contentDescription = stringResource(R.string.add_image_button), modifier = Modifier.size(24.dp)) }
+                            icon = {
+                                Icon(
+                                    painterResource(id = R.drawable.outline_add_photo_alternate_24),
+                                    contentDescription = stringResource(R.string.add_image_button),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = currentTab == 3,
                             onClick = { onTabSelected(3) },
-                            icon = { Icon(Icons.Default.Map, contentDescription = stringResource(R.string.itineraries), modifier = Modifier.size(24.dp)) }
+                            icon = {
+                                Icon(
+                                    Icons.Default.Map,
+                                    contentDescription = stringResource(R.string.itineraries),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         )
                         NavigationBarItem(
                             selected = currentTab == 4,
                             onClick = { onTabSelected(4) },
-                            icon = { Icon(painterResource(id = R.drawable.outline_account_circle_24), contentDescription = stringResource(R.string.profile), modifier = Modifier.size(24.dp)) }
+                            icon = {
+                                if (userData?.profileImageUrl?.isNotEmpty() == true) {
+                                    AsyncImage(
+                                        model = userData.profileImageUrl,
+                                        contentDescription = stringResource(R.string.profile),
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(CircleShape)
+                                            .border(
+                                                1.dp,
+                                                if (currentTab == 4) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                                CircleShape
+                                            ),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Icon(
+                                        painterResource(id = R.drawable.outline_account_circle_24),
+                                        contentDescription = stringResource(R.string.profile),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                         )
                     }
                 }
@@ -209,8 +309,8 @@ fun MainScreenFeedPreview() {
         UiStory("2", "Alice", "")
     )
     val samplePosts = listOf(
-        UiPost("1", "1", "Traveler1", "", "Paris", "", System.currentTimeMillis()),
-        UiPost("2", "2", "Alice", "", "Lyon", "", System.currentTimeMillis() - 3600000)
+        UiPost("1", "1", "Traveler1", "", "Paris", "", "", System.currentTimeMillis()),
+        UiPost("2", "1", "Alice", "", "Lyon", "", "", System.currentTimeMillis() - 3600000)
     )
 
     TravelPasCherTheme {

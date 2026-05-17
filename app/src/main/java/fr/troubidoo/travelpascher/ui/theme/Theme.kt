@@ -2,7 +2,12 @@ package fr.troubidoo.travelpascher.ui.theme
 
 import android.app.Activity
 import android.os.Build
-import androidx.compose.material3.*
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.platform.LocalContext
@@ -11,7 +16,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 
 @Composable
 fun TravelPasCherTheme(
-    darkTheme: Boolean = false,
+    darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit
 ) {
@@ -23,17 +28,17 @@ fun TravelPasCherTheme(
             if (darkTheme) dynamicDarkColorScheme(context)
             else dynamicLightColorScheme(context)
         }
+
         darkTheme -> darkColorScheme()
         else -> lightColorScheme()
     }
 
-    // C'est ici qu'on gère la visibilité des icônes (Heure, Batterie, etc.)
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // isAppearanceLightStatusBars = true -> Icônes sombres (pour fond clair)
-            // isAppearanceLightStatusBars = false -> Icônes claires (pour fond sombre)
-            WindowInsetsControllerCompat(window, view).isAppearanceLightStatusBars = !darkTheme
+            val controller = WindowInsetsControllerCompat(window, view)
+            controller.isAppearanceLightStatusBars = !darkTheme
+            controller.isAppearanceLightNavigationBars = !darkTheme
         }
     }
 

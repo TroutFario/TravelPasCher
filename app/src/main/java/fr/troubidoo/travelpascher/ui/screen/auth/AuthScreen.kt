@@ -1,7 +1,14 @@
 package fr.troubidoo.travelpascher.ui.screen.auth
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -25,11 +32,13 @@ fun AuthScreen(viewModel: FeedViewModel? = null) {
                 onLoginClick = { currentStep = AuthStep.LOGIN },
                 onSignupClick = { currentStep = AuthStep.SIGNUP }
             )
+
             AuthStep.LOGIN -> LoginContent(
                 viewModel = viewModel,
                 onBack = { currentStep = AuthStep.CHOICE },
-                onSuccess = { /* La redirection est gérée par MainScreen via le StateFlow */ }
+                onSuccess = { }
             )
+
             AuthStep.SIGNUP -> SignupContent(
                 viewModel = viewModel,
                 onBack = { currentStep = AuthStep.CHOICE },

@@ -24,15 +24,14 @@ class MainActivity : ComponentActivity() {
 
         android.util.Log.d("TravelPasCher", "App Check Debug Provider installé.")
 
-        // Initialisation de Google Places
         if (!Places.isInitialized()) {
-            // Remplacez par votre clé API réelle
-            Places.initializeWithNewPlacesApiEnabled(applicationContext, "AIzaSyADbS8kOjk5zfe5-ZbROmIf6CNn_13btbs")
+            Places.initializeWithNewPlacesApiEnabled(
+                applicationContext, "AIzaSyADbS8kOjk5zfe5-ZbROmIf6CNn_13btbs"
+            )
         }
 
         enableEdgeToEdge()
 
-        // Création du ViewModel
         val viewModel = FeedViewModel()
 
         setContent {

@@ -42,7 +42,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-    
+
     configurations.all {
         exclude(group = "org.chromium.net", module = "cronet-fallback")
         exclude(group = "org.chromium.net", module = "cronet-common")

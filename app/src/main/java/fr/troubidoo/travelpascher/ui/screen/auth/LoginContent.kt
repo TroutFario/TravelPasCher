@@ -1,8 +1,21 @@
 package fr.troubidoo.travelpascher.ui.screen.auth
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,9 +36,12 @@ fun LoginContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text(text = stringResource(R.string.login_title), style = MaterialTheme.typography.headlineSmall)
+        Text(
+            text = stringResource(R.string.login_title),
+            style = MaterialTheme.typography.headlineSmall
+        )
         Spacer(modifier = Modifier.height(24.dp))
-        
+
         var email by remember { mutableStateOf("") }
         var password by remember { mutableStateOf("") }
         var isLoading by remember { mutableStateOf(false) }
@@ -77,7 +93,10 @@ fun LoginContent(
             enabled = !isLoading
         ) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             } else {
                 Text(stringResource(R.string.login_button))
             }

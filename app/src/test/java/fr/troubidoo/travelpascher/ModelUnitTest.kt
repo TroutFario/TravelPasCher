@@ -10,10 +10,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Tests unitaires pour les modèles de données et les états UI.
- * Ces tests vérifient que les structures de données se comportent comme attendu.
- */
 class ModelUnitTest {
 
     @Test
@@ -82,7 +78,7 @@ class ModelUnitTest {
     @Test
     fun createPostUiState_validation_check() {
         val state = CreatePostUiState(location = "Tokyo")
-        
+
         assertEquals("Tokyo", state.location)
         assertNull(state.errorMessage)
         assertEquals(false, state.isLoading)
@@ -93,7 +89,7 @@ class ModelUnitTest {
     fun settingsUiState_update_works() {
         val state = SettingsUiState(firstName = "Alice")
         val newState = state.copy(lastName = "Smith", isLoading = true)
-        
+
         assertEquals("Alice", newState.firstName)
         assertEquals("Smith", newState.lastName)
         assertTrue(newState.isLoading)

@@ -23,13 +23,13 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
-// Modèles de données pour l'UI (Directement depuis Firebase)
 data class UiPost(
     val id: String,
     val userId: String,
     val username: String,
     val authorProfileImageUrl: String = "",
     val location: String,
+    val description: String = "",
     val imageUrl: String,
     val createdAt: Long,
     val likedBy: List<String> = emptyList(),
@@ -46,6 +46,7 @@ data class UiPost(
                     username = doc.getString("username") ?: "Anonymous",
                     authorProfileImageUrl = doc.getString("authorProfileImageUrl") ?: "",
                     location = doc.getString("location") ?: "",
+                    description = doc.getString("description") ?: "",
                     imageUrl = doc.getString("imageUrl") ?: "",
                     createdAt = doc.getLong("createdAt") ?: 0L,
                     likedBy = (doc.get("likedBy") as? List<*>)?.filterIsInstance<String>()
@@ -91,7 +92,8 @@ data class UiUser(
     val preferredCategories: List<String> = emptyList(),
     val profileImageUrl: String = "",
     val followers: List<String> = emptyList(),
-    val following: List<String> = emptyList()
+    val following: List<String> = emptyList(),
+    val savedPosts: List<String> = emptyList()
 ) {
     companion object {
         fun fromSnapshot(doc: com.google.firebase.firestore.DocumentSnapshot): UiUser? {
@@ -109,6 +111,8 @@ data class UiUser(
                     followers = (doc.get("followers") as? List<*>)?.filterIsInstance<String>()
                         ?: emptyList(),
                     following = (doc.get("following") as? List<*>)?.filterIsInstance<String>()
+                        ?: emptyList(),
+                    savedPosts = (doc.get("savedPosts") as? List<*>)?.filterIsInstance<String>()
                         ?: emptyList()
                 )
             } catch (e: Exception) {
@@ -146,7 +150,6 @@ data class UiComment(
     }
 }
 
-// Modèles pour les Itinéraires et Activités
 data class UiItinerary(
     val id: String,
     val userId: String,
@@ -193,7 +196,7 @@ data class UiActivity(
     val name: String,
     val description: String,
     val location: String,
-    val category: String, // ex: Restaurant, Musée, Parc
+    val category: String,
     val rating: Double = 0.0,
     val latitude: Double? = null,
     val longitude: Double? = null,
@@ -233,7 +236,6 @@ class FeedViewModel : ViewModel() {
     private val _userData = MutableStateFlow<UiUser?>(null)
     val userData = _userData.asStateFlow()
 
-    // On observe directement Firebase via des StateFlow
     private val _posts = MutableStateFlow<List<UiPost>>(emptyList())
     val posts = _posts.asStateFlow()
 
@@ -243,19 +245,29 @@ class FeedViewModel : ViewModel() {
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
 
-    // Profil d'un autre utilisateur sélectionné
     private val _selectedUserProfile = MutableStateFlow<UiUser?>(null)
     val selectedUserProfile = _selectedUserProfile.asStateFlow()
 
     private val _selectedUserPosts = MutableStateFlow<List<UiPost>>(emptyList())
     val selectedUserPosts = _selectedUserPosts.asStateFlow()
 
-    // Liste des commentaires pour le post actuellement ouvert
+    private val _selectedUserItineraries = MutableStateFlow<List<UiItinerary>>(emptyList())
+    val selectedUserItineraries = _selectedUserItineraries.asStateFlow()
+
     private val _currentPostComments = MutableStateFlow<List<UiComment>>(emptyList())
     val currentPostComments = _currentPostComments.asStateFlow()
 
     private val _itineraries = MutableStateFlow<List<UiItinerary>>(emptyList())
     val itineraries = _itineraries.asStateFlow()
+
+    private val _searchResultsUsers = MutableStateFlow<List<UiUser>>(emptyList())
+    val searchResultsUsers = _searchResultsUsers.asStateFlow()
+
+    private val _searchResultsPosts = MutableStateFlow<List<UiPost>>(emptyList())
+    val searchResultsPosts = _searchResultsPosts.asStateFlow()
+
+    private val _searchResultsItineraries = MutableStateFlow<List<UiItinerary>>(emptyList())
+    val searchResultsItineraries = _searchResultsItineraries.asStateFlow()
 
     private val _globalActivities = MutableStateFlow<List<UiActivity>>(emptyList())
     val globalActivities = _globalActivities.asStateFlow()
@@ -279,16 +291,15 @@ class FeedViewModel : ViewModel() {
                 val user = firebaseAuth.currentUser
                 _currentUser.value = user
 
-                // On relance l'écoute des itinéraires à chaque changement d'utilisateur
                 listenToItineraries()
 
                 if (user != null) {
                     db.collection("users").document(user.uid).addSnapshotListener { snapshot, e ->
-                            if (e != null) return@addSnapshotListener
-                            if (snapshot != null && snapshot.exists()) {
-                                _userData.value = UiUser.fromSnapshot(snapshot)
-                            }
+                        if (e != null) return@addSnapshotListener
+                        if (snapshot != null && snapshot.exists()) {
+                            _userData.value = UiUser.fromSnapshot(snapshot)
                         }
+                    }
                 } else {
                     _userData.value = null
                 }
@@ -312,18 +323,23 @@ class FeedViewModel : ViewModel() {
 
     private fun listenToFirestoreStories() {
         db.collection("stories").addSnapshotListener { snapshots, e ->
-                if (e != null) return@addSnapshotListener
-                if (snapshots != null) {
-                    val list = snapshots.documents.mapNotNull { doc ->
-                        UiStory.fromSnapshot(doc)
-                    }
-                    _stories.value = list
+            if (e != null) return@addSnapshotListener
+            if (snapshots != null) {
+                val list = snapshots.documents.mapNotNull { doc ->
+                    UiStory.fromSnapshot(doc)
                 }
+                _stories.value = list
             }
+        }
+    }
+
+    private fun String.normalize(): String {
+        return this.lowercase().replace("\\s".toRegex(), "").trim()
     }
 
     fun uploadPost(
         location: String,
+        description: String,
         imageUri: Uri? = null,
         lat: Double? = null,
         lon: Double? = null,
@@ -340,7 +356,6 @@ class FeedViewModel : ViewModel() {
             try {
                 var imageUrl = ""
 
-                // 1. Upload de l'image si elle existe
                 if (imageUri != null) {
                     val fileName = "posts/${user.uid}_${System.currentTimeMillis()}.jpg"
                     val storageRef = storage.reference.child(fileName)
@@ -348,18 +363,18 @@ class FeedViewModel : ViewModel() {
                     imageUrl = storageRef.downloadUrl.await().toString()
                 }
 
-                // 2. Récupération des infos actuelles de l'utilisateur (pseudo et photo)
                 val currentUsername = _userData.value?.username?.ifBlank { null }
                     ?: user.displayName?.ifBlank { null } ?: user.email ?: "Anonymous"
 
                 val authorProfileImageUrl = _userData.value?.profileImageUrl ?: ""
 
-                // 3. Création du post dans Firestore
                 val postData = hashMapOf(
                     "userId" to user.uid,
                     "username" to currentUsername,
                     "authorProfileImageUrl" to authorProfileImageUrl,
                     "location" to location,
+                    "locationLowercase" to location.normalize(),
+                    "description" to description,
                     "imageUrl" to imageUrl,
                     "createdAt" to System.currentTimeMillis(),
                     "likedBy" to arrayListOf<String>(),
@@ -376,9 +391,7 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Connecte un utilisateur avec Firebase Auth.
-     */
+
     fun loginUser(
         email: String, password: String, onSuccess: () -> Unit, onError: (String) -> Unit
     ) {
@@ -399,9 +412,6 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Crée un utilisateur avec Firebase Auth puis stocke son profil dans Firestore.
-     */
     fun registerUser(
         username: String,
         email: String,
@@ -414,14 +424,12 @@ class FeedViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
-                // 1. Création du compte dans Firebase Auth
                 val authResult = auth.createUserWithEmailAndPassword(email, password).await()
                 val firebaseUser = authResult.user
 
                 if (firebaseUser != null) {
                     var profileImageUrl = ""
 
-                    // 2. Upload de la photo de profil si elle existe
                     if (profileImageUri != null) {
                         val fileName = "profiles/${firebaseUser.uid}.jpg"
                         val storageRef = storage.reference.child(fileName)
@@ -429,10 +437,10 @@ class FeedViewModel : ViewModel() {
                         profileImageUrl = storageRef.downloadUrl.await().toString()
                     }
 
-                    // 3. Création du profil utilisateur dans Firestore
                     val userData = hashMapOf(
                         "id" to firebaseUser.uid,
                         "username" to username,
+                        "usernameLowercase" to username.normalize(), // Champ de recherche
                         "email" to email,
                         "firstName" to firstName,
                         "lastName" to lastName,
@@ -452,9 +460,6 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    /**
-     * Déconnecte l'utilisateur.
-     */
     fun logout() {
         auth.signOut()
         _currentUser.value = null
@@ -464,8 +469,6 @@ class FeedViewModel : ViewModel() {
     fun refresh() {
         viewModelScope.launch {
             _isRefreshing.value = true
-            // Puisque nous utilisons des SnapshotListeners, les données sont déjà à jour.
-            // On simule un petit délai pour le retour visuel de l'utilisateur.
             kotlinx.coroutines.delay(1000)
             _isRefreshing.value = false
         }
@@ -486,6 +489,7 @@ class FeedViewModel : ViewModel() {
             try {
                 val updates = hashMapOf(
                     "username" to username,
+                    "usernameLowercase" to username.normalize(), // Champ de recherche
                     "firstName" to firstName,
                     "lastName" to lastName,
                     "bio" to bio,
@@ -493,7 +497,6 @@ class FeedViewModel : ViewModel() {
                 )
 
                 if (newProfileImageUri != null) {
-                    // 1. Supprimer l'ancienne image si elle existe
                     val currentImageUrl = _userData.value?.profileImageUrl
                     if (!currentImageUrl.isNullOrEmpty()) {
                         try {
@@ -503,7 +506,6 @@ class FeedViewModel : ViewModel() {
                         }
                     }
 
-                    // 2. Upload de la nouvelle image
                     val fileName = "profiles/${user.uid}_${System.currentTimeMillis()}.jpg"
                     val storageRef = storage.reference.child(fileName)
                     storageRef.putFile(newProfileImageUri).await()
@@ -539,15 +541,96 @@ class FeedViewModel : ViewModel() {
         }
     }
 
+    fun toggleBookmark(postId: String) {
+        val user = auth.currentUser ?: return
+        val isBookmarked = _userData.value?.savedPosts?.contains(postId) == true
+
+        viewModelScope.launch {
+            try {
+                val userRef = db.collection("users").document(user.uid)
+                if (isBookmarked) {
+                    userRef.update("savedPosts", FieldValue.arrayRemove(postId)).await()
+                } else {
+                    userRef.update("savedPosts", FieldValue.arrayUnion(postId)).await()
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun searchUsers(query: String) {
+        if (query.isBlank()) {
+            _searchResultsUsers.value = emptyList()
+            return
+        }
+        val normalizedQuery = query.normalize()
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("users")
+                    .whereGreaterThanOrEqualTo("usernameLowercase", normalizedQuery)
+                    .whereLessThanOrEqualTo("usernameLowercase", normalizedQuery + "\uf8ff")
+                    .get().await()
+                _searchResultsUsers.value = snapshot.documents.mapNotNull { UiUser.fromSnapshot(it) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun searchPosts(query: String) {
+        if (query.isBlank()) {
+            _searchResultsPosts.value = emptyList()
+            return
+        }
+        val normalizedQuery = query.normalize()
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("posts")
+                    .whereGreaterThanOrEqualTo("locationLowercase", normalizedQuery)
+                    .whereLessThanOrEqualTo("locationLowercase", normalizedQuery + "\uf8ff")
+                    .get().await()
+                _searchResultsPosts.value = snapshot.documents.mapNotNull { UiPost.fromSnapshot(it) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun searchItinerariesInGlobal(query: String) {
+        if (query.isBlank()) {
+            _searchResultsItineraries.value = emptyList()
+            return
+        }
+        val normalizedQuery = query.normalize()
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("itineraries")
+                    .whereGreaterThanOrEqualTo("destinationLowercase", normalizedQuery)
+                    .whereLessThanOrEqualTo("destinationLowercase", normalizedQuery + "\uf8ff")
+                    .get().await()
+                _searchResultsItineraries.value = snapshot.documents.mapNotNull { UiItinerary.fromSnapshot(it) }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
     fun updatePost(
         postId: String,
         newLocation: String,
+        newDescription: String,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             try {
-                db.collection("posts").document(postId).update("location", newLocation).await()
+                val updates = hashMapOf<String, Any>(
+                    "location" to newLocation,
+                    "locationLowercase" to newLocation.normalize(),
+                    "description" to newDescription
+                )
+                db.collection("posts").document(postId).update(updates).await()
                 onSuccess()
             } catch (e: Exception) {
                 onError(e.message ?: "Erreur lors de la mise à jour")
@@ -560,10 +643,8 @@ class FeedViewModel : ViewModel() {
     ) {
         viewModelScope.launch {
             try {
-                // 1. Supprimer d'abord le document Firestore
                 db.collection("posts").document(postId).delete().await()
 
-                // 2. Tenter de supprimer l'image de manière indépendante (seulement si c'est un lien Firebase)
                 if (imageUrl.isNotEmpty() && imageUrl.startsWith("https://firebasestorage")) {
                     try {
                         storage.getReferenceFromUrl(imageUrl).delete().await()
@@ -578,8 +659,6 @@ class FeedViewModel : ViewModel() {
             }
         }
     }
-
-    // --- Gestion des commentaires ---
 
     fun listenToComments(postId: String) {
         commentsListener?.remove()
@@ -653,24 +732,29 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    // --- Gestion des Profils ---
-
     fun fetchUserProfile(userId: String) {
         viewModelScope.launch {
             try {
-                // Fetch user data
                 val userDoc = db.collection("users").document(userId).get().await()
                 if (userDoc.exists()) {
                     _selectedUserProfile.value = UiUser.fromSnapshot(userDoc)
                 }
 
-                // Fetch user posts
                 val postsSnapshot = db.collection("posts").whereEqualTo("userId", userId)
                     .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                     .get().await()
 
                 _selectedUserPosts.value = postsSnapshot.documents.mapNotNull { doc ->
                     UiPost.fromSnapshot(doc)
+                }
+
+                val itinerariesSnapshot = db.collection("itineraries")
+                    .whereEqualTo("userId", userId)
+                    .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                    .get().await()
+
+                _selectedUserItineraries.value = itinerariesSnapshot.documents.mapNotNull { doc ->
+                    UiItinerary.fromSnapshot(doc)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -681,6 +765,7 @@ class FeedViewModel : ViewModel() {
     fun clearSelectedUserProfile() {
         _selectedUserProfile.value = null
         _selectedUserPosts.value = emptyList()
+        _selectedUserItineraries.value = emptyList()
     }
 
     fun checkUsernameAvailability(username: String) {
@@ -688,8 +773,7 @@ class FeedViewModel : ViewModel() {
             _isUsernameAvailable.value = null
             return
         }
-        
-        // Si c'est le pseudo actuel, il est disponible
+
         if (username == _userData.value?.username) {
             _isUsernameAvailable.value = true
             return
@@ -744,7 +828,6 @@ class FeedViewModel : ViewModel() {
                     }
                 }.await()
 
-                // Refresh the profile if it's the one currently viewed
                 if (_selectedUserProfile.value?.id == targetUserId) {
                     fetchUserProfile(targetUserId)
                 }
@@ -754,28 +837,44 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    // --- Gestion des Itinéraires ---
-
     private fun listenToItineraries() {
-        val user = auth.currentUser
         itinerariesListener?.remove()
 
-        if (user != null) {
-            itinerariesListener = db.collection("itineraries").whereEqualTo("userId", user.uid)
-                .addSnapshotListener { snapshots, e ->
-                    if (e != null) {
-                        android.util.Log.e("FIRESTORE", "Listen failed", e)
-                        return@addSnapshotListener
-                    }
-                    if (snapshots != null) {
-                        val list = snapshots.documents.mapNotNull { doc ->
-                            UiItinerary.fromSnapshot(doc)
-                        }.sortedByDescending { it.createdAt }
-                        _itineraries.value = list
-                    }
+        itinerariesListener = db.collection("itineraries")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshots, e ->
+                if (e != null) {
+                    android.util.Log.e("FIRESTORE", "Listen itineraries failed", e)
+                    return@addSnapshotListener
                 }
-        } else {
-            _itineraries.value = emptyList()
+                if (snapshots != null) {
+                    val list = snapshots.documents.mapNotNull { doc ->
+                        UiItinerary.fromSnapshot(doc)
+                    }
+                    _itineraries.value = list
+                }
+            }
+    }
+
+    fun searchItineraries(query: String) {
+        if (query.isBlank()) {
+            listenToItineraries()
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("itineraries")
+                    .whereGreaterThanOrEqualTo("destination", query)
+                    .whereLessThanOrEqualTo("destination", query + "\uf8ff")
+                    .get().await()
+
+                _itineraries.value = snapshot.documents.mapNotNull { doc ->
+                    UiItinerary.fromSnapshot(doc)
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -795,6 +894,7 @@ class FeedViewModel : ViewModel() {
             "title" to title,
             "description" to description,
             "destination" to destination,
+            "destinationLowercase" to destination.normalize(), // Champ de recherche
             "createdAt" to System.currentTimeMillis(),
             "latitude" to lat,
             "longitude" to lon,
@@ -912,26 +1012,21 @@ class FeedViewModel : ViewModel() {
             try {
                 _isRefreshing.value = true
 
-                // 1. Durée du voyage
                 val durationInDays = calculateDurationInDays(startDate, endDate)
                 val maxTotalCapacity = durationInDays * 3
 
-                // 2. Recherche d'activités via Google Places
                 val nearbyActivities = fetchActivitiesFromGoogle(lat, lon)
 
-                // 3. Filtrer et scorer selon les préférences
                 val userPrefs = _userData.value?.preferredCategories ?: emptyList()
                 val scoredActivities = nearbyActivities.map { act ->
                     val dist =
                         calculateDistance(lat, lon, act.latitude ?: 0.0, act.longitude ?: 0.0)
-                    // On vérifie si la catégorie de l'activité (ou ses types Google) matchent les prefs
                     val isPreferred =
                         userPrefs.any { pref -> act.category.contains(pref, ignoreCase = true) }
                     val score = dist * (if (isPreferred) 0.5 else 1.0)
                     Triple(act, dist, score)
                 }.sortedBy { it.third }
 
-                // 4. Sélection intelligente
                 val selectedActivities = mutableListOf<UiActivity>()
                 var currentUsedCapacity = 0
                 var museumCount = 0
@@ -956,7 +1051,6 @@ class FeedViewModel : ViewModel() {
                     if (currentUsedCapacity >= maxTotalCapacity) break
                 }
 
-                // 5. Créer le parcours
                 addItinerary(
                     title,
                     description,
@@ -991,10 +1085,9 @@ class FeedViewModel : ViewModel() {
         )
 
         val center = com.google.android.gms.maps.model.LatLng(lat, lon)
-        val circle = CircularBounds.newInstance(center, 10000.0) // 10km radius
+        val circle = CircularBounds.newInstance(center, 10000.0)
 
         val allResults = mutableListOf<UiActivity>()
-        // Si un type est spécifié, on n'interroge que lui, sinon toute la liste
         val types = if (specificType != null) listOf(specificType)
         else listOf(
             "tourist_attraction", "museum", "park", "restaurant", "cafe", "lodging", "shopping_mall"
@@ -1043,7 +1136,7 @@ class FeedViewModel : ViewModel() {
     }
 
     private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val r = 6371 // km
+        val r = 6371
         val dLat = toRadians(lat2 - lat1)
         val dLon = toRadians(lon2 - lon1)
         val a = sin(dLat / 2) * sin(dLat / 2) + cos(toRadians(lat1)) * cos(
