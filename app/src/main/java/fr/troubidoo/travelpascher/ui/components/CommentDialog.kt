@@ -38,17 +38,27 @@ fun CommentDialog(
     var editingCommentId by remember { mutableStateOf<String?>(null) }
     var editingText by remember { mutableStateOf("") }
 
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = false
+    )
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        modifier = Modifier.fillMaxHeight(0.9f)
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight() // Permet à la fenêtre de monter jusqu'en haut
+                .navigationBarsPadding() // Touche le bord bas proprement
+                .imePadding() // Remonte avec le clavier
+        ) {
             // Header
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -64,8 +74,8 @@ fun CommentDialog(
             if (comments.isEmpty()) {
                 Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .weight(1f), // Prend l'espace pour permettre le drag
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -77,7 +87,7 @@ fun CommentDialog(
             } else {
                 LazyColumn(
                     modifier = Modifier
-                        .weight(1f)
+                        .weight(1f) // Prend tout l'espace restant
                         .fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -140,8 +150,7 @@ fun CommentDialog(
                     )
                 }
             }
-            Spacer(modifier = Modifier.navigationBarsPadding())
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
