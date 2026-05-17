@@ -89,7 +89,6 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
             comments = comments,
             currentUserId = currentUser?.uid,
             onDismiss = {
-                selectedPostIdForComments = null
                 viewModel.stopListeningToComments()
             },
             onSendComment = { text: String -> viewModel.addComment(postId, text) },

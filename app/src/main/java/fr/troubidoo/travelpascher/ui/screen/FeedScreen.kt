@@ -64,7 +64,6 @@ fun FeedScreen(viewModel: FeedViewModel) {
             comments = comments,
             currentUserId = currentUser?.uid,
             onDismiss = {
-                selectedPostIdForComments = null
                 viewModel.stopListeningToComments()
             },
             onSendComment = { text: String -> viewModel.addComment(postId, text) },
@@ -76,7 +75,6 @@ fun FeedScreen(viewModel: FeedViewModel) {
     if (selectedUserIdForProfile != null && selectedUserProfile != null) {
         ModalBottomSheet(
             onDismissRequest = {
-                selectedUserIdForProfile = null
                 viewModel.clearSelectedUserProfile()
             },
             sheetState = sheetState
@@ -103,10 +101,9 @@ fun FeedScreen(viewModel: FeedViewModel) {
         PostDetailDialog(
             post = post,
             isOwner = post.userId == currentUser?.uid,
-            onDismiss = { selectedPostForDetail = null },
+            onDismiss = { },
             onCommentClick = {
-                selectedPostForDetail = null
-                selectedPostIdForComments = post.id
+                post.id
                 viewModel.listenToComments(post.id)
             }
         )

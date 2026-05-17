@@ -5,8 +5,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
@@ -46,7 +44,7 @@ fun ExploreScreen(viewModel: FeedViewModel) {
             explorePosts.forEach { post ->
                 val position = LatLng(post.latitude!!, post.longitude!!)
                 Marker(
-                    state = rememberMarkerState(position = position),
+                    state = rememberUpdatedMarkerState(position = position),
                     title = post.location,
                     snippet = "Par ${post.username}",
                     onClick = {
@@ -78,7 +76,7 @@ fun ExploreScreen(viewModel: FeedViewModel) {
 
     if (isSheetOpen && selectedPost != null) {
         ModalBottomSheet(
-            onDismissRequest = { isSheetOpen = false },
+            onDismissRequest = { },
             sheetState = sheetState
         ) {
             Box(modifier = Modifier.padding(bottom = 32.dp)) {

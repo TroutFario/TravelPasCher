@@ -260,10 +260,6 @@ class FeedViewModel : ViewModel() {
     private val _globalActivities = MutableStateFlow<List<UiActivity>>(emptyList())
     val globalActivities = _globalActivities.asStateFlow()
 
-    // Suggestions de recherche Autocomplete
-    private val _searchSuggestions = MutableStateFlow<List<com.google.android.libraries.places.api.model.AutocompletePrediction>>(emptyList())
-    val searchSuggestions = _searchSuggestions.asStateFlow()
-
     private val _isUsernameAvailable = MutableStateFlow<Boolean?>(null)
     val isUsernameAvailable = _isUsernameAvailable.asStateFlow()
 
@@ -488,7 +484,7 @@ class FeedViewModel : ViewModel() {
         val user = auth.currentUser ?: return
         viewModelScope.launch {
             try {
-                val updates = hashMapOf<String, Any>(
+                val updates = hashMapOf(
                     "username" to username,
                     "firstName" to firstName,
                     "lastName" to lastName,

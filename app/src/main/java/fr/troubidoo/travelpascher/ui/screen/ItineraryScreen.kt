@@ -433,7 +433,7 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                     ) {
                         selectedLocation?.let {
                             Marker(
-                                state = remember(it) { MarkerState(position = it) },
+                                state = rememberUpdatedMarkerState(it),
                                 title = "Lieu sélectionné"
                             )
                         }

@@ -271,7 +271,6 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                             message = successMessage,
                             selectedImageUri = null
                         )
-                        // On quitte l'écran après un court délai pour que l'utilisateur voit le message de succès
                         onBack()
                     },
                     onError = {

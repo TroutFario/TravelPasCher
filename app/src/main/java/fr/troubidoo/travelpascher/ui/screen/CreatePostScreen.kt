@@ -142,7 +142,7 @@ private fun CreatePostContent(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
-                        isMapInteracting = event.changes.any { it.pressed }
+                        event.changes.any { it.pressed }
                     }
                 }
             }
@@ -153,8 +153,7 @@ private fun CreatePostContent(
                 onMapClick = { onLocationSelect(it) }
             ) {
                 uiState.selectedLocation?.let {
-                    val markerState = remember(it) { MarkerState(it) }
-                    Marker(state = markerState)
+                    Marker(state = rememberUpdatedMarkerState(it))
                 }
             }
         }
