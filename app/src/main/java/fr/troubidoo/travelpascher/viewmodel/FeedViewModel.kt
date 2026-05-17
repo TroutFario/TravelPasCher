@@ -60,7 +60,11 @@ data class UiItinerary(
     val description: String,
     val destination: String,
     val createdAt: Long,
-    val activities: List<UiActivity> = emptyList()
+    val activities: List<UiActivity> = emptyList(),
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val startDate: String = "",
+    val endDate: String = ""
 )
 
 data class UiActivity(
@@ -69,7 +73,10 @@ data class UiActivity(
     val description: String,
     val location: String,
     val category: String, // ex: Restaurant, Musée, Parc
-    val rating: Double = 0.0
+    val rating: Double = 0.0,
+    val latitude: Double? = null,
+    val longitude: Double? = null,
+    val price: Double? = null
 )
 
 class FeedViewModel : ViewModel() {
@@ -101,6 +108,9 @@ class FeedViewModel : ViewModel() {
     private val _itineraries = MutableStateFlow<List<UiItinerary>>(emptyList())
     val itineraries = _itineraries.asStateFlow()
 
+    private val _globalActivities = MutableStateFlow<List<UiActivity>>(emptyList())
+    val globalActivities = _globalActivities.asStateFlow()
+
     private var commentsListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var itinerariesListener: com.google.firebase.firestore.ListenerRegistration? = null
 
@@ -109,6 +119,7 @@ class FeedViewModel : ViewModel() {
         listenToFirestoreStories()
         listenToUserData()
         listenToItineraries()
+        fetchGlobalActivities()
     }
 
     private fun listenToUserData() {
@@ -116,6 +127,10 @@ class FeedViewModel : ViewModel() {
             auth.addAuthStateListener { firebaseAuth ->
                 val user = firebaseAuth.currentUser
                 _currentUser.value = user
+                
+                // On relance l'écoute des itinéraires à chaque changement d'utilisateur
+                listenToItineraries()
+
                 if (user != null) {
                     db.collection("users").document(user.uid)
                         .addSnapshotListener { snapshot, e ->
@@ -502,9 +517,11 @@ class FeedViewModel : ViewModel() {
         if (user != null) {
             itinerariesListener = db.collection("itineraries")
                 .whereEqualTo("userId", user.uid)
-                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .addSnapshotListener { snapshots, e ->
-                    if (e != null) return@addSnapshotListener
+                    if (e != null) {
+                        android.util.Log.e("FIRESTORE", "Listen failed", e)
+                        return@addSnapshotListener
+                    }
                     if (snapshots != null) {
                         val list = snapshots.documents.mapNotNull { doc ->
                             val activitiesData = doc.get("activities") as? List<Map<String, Any>> ?: emptyList()
@@ -515,7 +532,10 @@ class FeedViewModel : ViewModel() {
                                     description = act["description"]?.toString() ?: "",
                                     location = act["location"]?.toString() ?: "",
                                     category = act["category"]?.toString() ?: "",
-                                    rating = (act["rating"] as? Number)?.toDouble() ?: 0.0
+                                    rating = (act["rating"] as? Number)?.toDouble() ?: 0.0,
+                                    latitude = (act["latitude"] as? Number)?.toDouble(),
+                                    longitude = (act["longitude"] as? Number)?.toDouble(),
+                                    price = (act["price"] as? Number)?.toDouble()
                                 )
                             }
                             UiItinerary(
@@ -525,9 +545,13 @@ class FeedViewModel : ViewModel() {
                                 description = doc.getString("description") ?: "",
                                 destination = doc.getString("destination") ?: "",
                                 createdAt = doc.getLong("createdAt") ?: 0L,
-                                activities = activities
+                                activities = activities,
+                                latitude = (doc.get("latitude") as? Number)?.toDouble(),
+                                longitude = (doc.get("longitude") as? Number)?.toDouble(),
+                                startDate = doc.getString("startDate") ?: "",
+                                endDate = doc.getString("endDate") ?: ""
                             )
-                        }
+                        }.sortedByDescending { it.createdAt }
                         _itineraries.value = list
                     }
                 }
@@ -536,7 +560,16 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    fun addItinerary(title: String, description: String, destination: String, activities: List<UiActivity>) {
+    fun addItinerary(
+        title: String,
+        description: String,
+        destination: String,
+        activities: List<UiActivity>,
+        lat: Double? = null,
+        lon: Double? = null,
+        startDate: String = "",
+        endDate: String = ""
+    ) {
         val user = auth.currentUser ?: return
         val itineraryData = hashMapOf(
             "userId" to user.uid,
@@ -544,22 +577,32 @@ class FeedViewModel : ViewModel() {
             "description" to description,
             "destination" to destination,
             "createdAt" to System.currentTimeMillis(),
+            "latitude" to lat,
+            "longitude" to lon,
+            "startDate" to startDate,
+            "endDate" to endDate,
             "activities" to activities.map {
                 hashMapOf(
-                    "id" to java.util.UUID.randomUUID().toString(),
+                    "id" to if (it.id.isEmpty()) java.util.UUID.randomUUID().toString() else it.id,
                     "name" to it.name,
                     "description" to it.description,
                     "location" to it.location,
                     "category" to it.category,
-                    "rating" to it.rating
+                    "rating" to it.rating,
+                    "latitude" to it.latitude,
+                    "longitude" to it.longitude,
+                    "price" to it.price
                 )
             }
         )
 
         viewModelScope.launch {
             try {
+                _isRefreshing.value = true
                 db.collection("itineraries").add(itineraryData).await()
+                _isRefreshing.value = false
             } catch (e: Exception) {
+                _isRefreshing.value = false
                 e.printStackTrace()
             }
         }
@@ -573,5 +616,82 @@ class FeedViewModel : ViewModel() {
                 e.printStackTrace()
             }
         }
+    }
+
+    fun addActivityToItinerary(itineraryId: String, activity: UiActivity) {
+        viewModelScope.launch {
+            try {
+                _isRefreshing.value = true
+                val activityData = hashMapOf(
+                    "id" to if (activity.id.isEmpty()) java.util.UUID.randomUUID().toString() else activity.id,
+                    "name" to activity.name,
+                    "description" to activity.description,
+                    "location" to activity.location,
+                    "category" to activity.category,
+                    "rating" to activity.rating,
+                    "latitude" to activity.latitude,
+                    "longitude" to activity.longitude,
+                    "price" to activity.price
+                )
+                db.collection("itineraries").document(itineraryId)
+                    .update("activities", FieldValue.arrayUnion(activityData)).await()
+                _isRefreshing.value = false
+            } catch (e: Exception) {
+                _isRefreshing.value = false
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteActivityFromItinerary(itineraryId: String, activity: UiActivity) {
+        viewModelScope.launch {
+            try {
+                _isRefreshing.value = true
+                val activityData = hashMapOf(
+                    "id" to activity.id,
+                    "name" to activity.name,
+                    "description" to activity.description,
+                    "location" to activity.location,
+                    "category" to activity.category,
+                    "rating" to activity.rating,
+                    "latitude" to activity.latitude,
+                    "longitude" to activity.longitude,
+                    "price" to activity.price
+                )
+                db.collection("itineraries").document(itineraryId)
+                    .update("activities", FieldValue.arrayRemove(activityData)).await()
+                _isRefreshing.value = false
+            } catch (e: Exception) {
+                _isRefreshing.value = false
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun fetchGlobalActivities() {
+        _globalActivities.value = listOf(
+            // Paris
+            UiActivity("g1", "Tour Eiffel", "Monument emblématique", "Paris", "Musée", 4.8, 48.8584, 2.2945, 25.0),
+            UiActivity("g2", "Le Louvre", "Musée d'art célèbre", "Paris", "Musée", 4.7, 48.8606, 2.3376, 22.0),
+            UiActivity("g3", "L'As du Fallafel", "Célèbre street food", "Paris", "Restaurant", 4.5, 48.8575, 2.3591, 12.0),
+            UiActivity("g7", "Montmartre & Sacré-Cœur", "Vue panoramique", "Paris", "Parc", 4.9, 48.8867, 2.3431, 0.0),
+            UiActivity("g8", "Boulangerie Utopie", "Meilleurs croissants", "Paris", "Restaurant", 4.7, 48.8631, 2.3670, 5.0),
+            
+            // London
+            UiActivity("g4", "Fish & Chips Central", "Authentique repas londonien", "London", "Restaurant", 4.2, 51.5074, -0.1278, 15.0),
+            UiActivity("g5", "British Museum", "Histoire mondiale", "London", "Musée", 4.6, 51.5194, -0.1270, 0.0),
+            UiActivity("g9", "London Eye", "Grande roue", "London", "Autre", 4.5, 51.5033, -0.1195, 30.0),
+            UiActivity("g10", "Hyde Park", "Grand parc royal", "London", "Parc", 4.8, 51.5073, -0.1657, 0.0),
+            
+            // New York
+            UiActivity("g6", "Central Park", "Poumon vert de NY", "New York", "Parc", 4.9, 40.7851, -73.9683, 0.0),
+            UiActivity("g11", "Statue de la Liberté", "Symbole de liberté", "New York", "Musée", 4.7, 40.6892, -74.0445, 20.0),
+            UiActivity("g12", "Joe's Pizza", "Slice classique de NY", "New York", "Restaurant", 4.6, 40.7305, -74.0021, 4.0),
+            
+            // Tokyo
+            UiActivity("g13", "Shibuya Crossing", "Carrefour célèbre", "Tokyo", "Autre", 4.7, 35.6595, 139.7005, 0.0),
+            UiActivity("g14", "Ichiran Ramen", "Ramen personnalisés", "Tokyo", "Restaurant", 4.8, 35.6601, 139.7001, 10.0),
+            UiActivity("g15", "Temple Senso-ji", "Temple historique", "Tokyo", "Musée", 4.8, 35.7148, 139.7967, 0.0)
+        )
     }
 }

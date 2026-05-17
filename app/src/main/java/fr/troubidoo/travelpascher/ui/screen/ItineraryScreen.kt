@@ -1,82 +1,121 @@
 package fr.troubidoo.travelpascher.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 import fr.troubidoo.travelpascher.viewmodel.UiActivity
 import fr.troubidoo.travelpascher.viewmodel.UiItinerary
+import kotlin.math.*
 
 @Composable
 fun ItineraryScreen(viewModel: FeedViewModel) {
     val itineraries by viewModel.itineraries.collectAsState()
-    var showAddDialog by remember { mutableStateOf(false) }
+    val globalActivities by viewModel.globalActivities.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    
+    var showAddItineraryDialog by remember { mutableStateOf(false) }
+    var selectedItineraryForActivity by remember { mutableStateOf<UiItinerary?>(null) }
 
-    Scaffold(
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Ajouter un parcours")
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            floatingActionButton = {
+                FloatingActionButton(onClick = { showAddItineraryDialog = true }) {
+                    Icon(Icons.Default.Add, contentDescription = "Ajouter un parcours")
+                }
             }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "Mes Parcours de Voyage",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 16.dp)
-            )
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "Mes Parcours de Voyage",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
 
-            if (itineraries.isEmpty()) {
-                EmptyItineraryView()
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(itineraries) { itinerary ->
-                        ItineraryCard(
-                            itinerary = itinerary,
-                            onDelete = { viewModel.deleteItinerary(itinerary.id) }
-                        )
+                if (itineraries.isEmpty() && !isRefreshing) {
+                    EmptyItineraryView()
+                } else {
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(itineraries) { itinerary ->
+                            ItineraryCard(
+                                itinerary = itinerary,
+                                onDelete = { viewModel.deleteItinerary(itinerary.id) },
+                                onAddActivity = { selectedItineraryForActivity = itinerary },
+                                onDeleteActivity = { activity -> viewModel.deleteActivityFromItinerary(itinerary.id, activity) }
+                            )
+                        }
                     }
                 }
             }
         }
+
+        // Overlay de chargement
+        if (isRefreshing) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        }
     }
 
-    if (showAddDialog) {
+    if (showAddItineraryDialog) {
         AddItineraryDialog(
-            onDismiss = { showAddDialog = false },
-            onConfirm = { title, desc, dest ->
-                viewModel.addItinerary(title, desc, dest, emptyList())
-                showAddDialog = false
+            onDismiss = { showAddItineraryDialog = false },
+            onConfirm = { title, desc, dest, lat, lon, start, end ->
+                viewModel.addItinerary(title, desc, dest, emptyList(), lat, lon, start, end)
+                showAddItineraryDialog = false
+            }
+        )
+    }
+
+    selectedItineraryForActivity?.let { itinerary ->
+        AddActivityDialog(
+            itinerary = itinerary,
+            availableActivities = globalActivities,
+            onDismiss = { selectedItineraryForActivity = null },
+            onConfirm = { activity ->
+                viewModel.addActivityToItinerary(itinerary.id, activity)
+                selectedItineraryForActivity = null
             }
         )
     }
 }
 
 @Composable
-fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit) {
+fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit, onAddActivity: () -> Unit, onDeleteActivity: (UiActivity) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -101,17 +140,255 @@ fun ItineraryCard(itinerary: UiItinerary, onDelete: () -> Unit) {
                 Icon(Icons.Default.LocationOn, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(text = itinerary.destination, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+                
+                if (itinerary.startDate.isNotEmpty() || itinerary.endDate.isNotEmpty()) {
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(Icons.Default.DateRange, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.outline)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "${itinerary.startDate} - ${itinerary.endDate}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
             Text(text = itinerary.description, style = MaterialTheme.typography.bodyMedium)
             
-            if (itinerary.activities.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(text = "${itinerary.activities.size} activités prévues", style = MaterialTheme.typography.labelSmall)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Activités",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                TextButton(onClick = onAddActivity) {
+                    Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Ajouter une activité")
+                }
+            }
+
+            if (itinerary.activities.isEmpty()) {
+                Text(
+                    text = "Aucune activité pour le moment.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            } else {
+                itinerary.activities.forEach { activity ->
+                    ActivityItem(activity, onDelete = { onDeleteActivity(activity) })
+                }
             }
         }
     }
+}
+
+@Composable
+fun ActivityItem(activity: UiActivity, onDelete: () -> Unit) {
+    val icon = when (activity.category.lowercase()) {
+        "restaurant", "food", "café" -> Icons.Default.Restaurant
+        "musée", "culture", "museum" -> Icons.Default.Museum
+        "parc", "nature" -> Icons.Default.Park
+        "hôtel", "logement" -> Icons.Default.Hotel
+        else -> Icons.Default.Place
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.secondary
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = activity.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            activity.price?.let {
+                Text(
+                    text = if (it == 0.0) "Gratuit" else "${it}€",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+            }
+        }
+        Badge(containerColor = MaterialTheme.colorScheme.secondaryContainer) {
+            Text(activity.category, style = MaterialTheme.typography.labelSmall)
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Supprimer l'activité",
+                modifier = Modifier.size(24.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+fun AddActivityDialog(
+    itinerary: UiItinerary,
+    availableActivities: List<UiActivity>,
+    onDismiss: () -> Unit,
+    onConfirm: (UiActivity) -> Unit
+) {
+    // Filtrage par distance
+    val filteredActivities = remember(availableActivities, itinerary) {
+        if (itinerary.latitude != null && itinerary.longitude != null) {
+            availableActivities.map { act ->
+                val dist = if (act.latitude != null && act.longitude != null) {
+                    calculateDistance(itinerary.latitude, itinerary.longitude, act.latitude, act.longitude)
+                } else {
+                    Double.MAX_VALUE
+                }
+                act to dist
+            }.sortedBy { it.second }
+        } else {
+            // Si pas de coordonnées pour le parcours, on filtre par le nom de la destination
+            availableActivities.filter { it.location.equals(itinerary.destination, ignoreCase = true) }.map { it to 0.0 }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Découvrir des activités")
+        },
+        text = {
+            Box(modifier = Modifier.heightIn(max = 400.dp)) {
+                if (filteredActivities.isEmpty()) {
+                    Text("Aucune activité trouvée à proximité.", modifier = Modifier.padding(16.dp))
+                } else {
+                    LazyColumn {
+                        items(filteredActivities) { (activity, distance) ->
+                            ListItem(
+                                headlineContent = { Text(activity.name) },
+                                supportingContent = { 
+                                    Text("${activity.category} • ${if (activity.price == 0.0) "Gratuit" else "${activity.price}€"}")
+                                },
+                                trailingContent = {
+                                    if (distance > 0 && distance < Double.MAX_VALUE) {
+                                        Text("${distance.toInt()} km", style = MaterialTheme.typography.labelSmall)
+                                    }
+                                },
+                                modifier = Modifier.clickable { onConfirm(activity) }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        }
+    )
+}
+
+fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6371 // Rayon de la terre en km
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
+            sin(dLon / 2) * sin(dLon / 2)
+    val c = 2 * atan2(sqrt(a), sqrt(1 - a))
+    return r * c
+}
+
+@Composable
+fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Double?, Double?, String, String) -> Unit) {
+    var title by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+    var dest by remember { mutableStateOf("") }
+    var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
+    var startDate by remember { mutableStateOf("") }
+    var endDate by remember { mutableStateOf("") }
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(48.8566, 2.3522), 10f)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Nouveau Parcours") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Titre du voyage") }, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("Destination (Ville)") }, modifier = Modifier.fillMaxWidth())
+                
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(value = startDate, onValueChange = { startDate = it }, label = { Text("Début (JJ/MM)") }, modifier = Modifier.weight(1f))
+                    OutlinedTextField(value = endDate, onValueChange = { endDate = it }, label = { Text("Fin (JJ/MM)") }, modifier = Modifier.weight(1f))
+                }
+
+                Text("Cliquez sur la carte pour définir le lieu :", style = MaterialTheme.typography.labelMedium)
+                
+                Box(modifier = Modifier
+                    .fillMaxWidth()
+                    .height(250.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                ) {
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        onMapClick = { selectedLocation = it }
+                    ) {
+                        selectedLocation?.let {
+                            Marker(
+                                state = MarkerState(position = it),
+                                title = "Lieu sélectionné"
+                            )
+                        }
+                    }
+                }
+
+                if (selectedLocation != null) {
+                    Text(
+                        text = "Coordonnées : ${String.format("%.4f", selectedLocation?.latitude)}, ${String.format("%.4f", selectedLocation?.longitude)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { 
+                    onConfirm(
+                        title, 
+                        desc, 
+                        dest, 
+                        selectedLocation?.latitude, 
+                        selectedLocation?.longitude, 
+                        startDate, 
+                        endDate
+                    ) 
+                },
+                enabled = title.isNotBlank() && dest.isNotBlank() && selectedLocation != null
+            ) { Text("Créer") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Annuler") }
+        }
+    )
 }
 
 @Composable
@@ -142,38 +419,85 @@ fun EmptyItineraryView() {
     }
 }
 
-@Composable
-fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String) -> Unit) {
-    var title by remember { mutableStateOf("") }
-    var desc by remember { mutableStateOf("") }
-    var dest by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nouveau Parcours") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Titre du voyage") })
-                OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("Destination") })
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Description") }, minLines = 2)
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(title, desc, dest) },
-                enabled = title.isNotBlank() && dest.isNotBlank()
-            ) { Text("Créer") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
-        }
-    )
-}
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ItineraryScreenPreview() {
+    val sampleActivities = listOf(
+        UiActivity(
+            id = "1",
+            name = "Tour Eiffel",
+            description = "Visite du monument",
+            location = "Paris",
+            category = "Musée",
+            price = 25.0,
+            latitude = 48.8584,
+            longitude = 2.2945
+        ),
+        UiActivity(
+            id = "2",
+            name = "Boulangerie",
+            description = "Petit déjeuner",
+            location = "Paris",
+            category = "Restaurant",
+            price = 8.5,
+            latitude = 48.8631,
+            longitude = 2.3670
+        )
+    )
+
+    val sampleItineraries = listOf(
+        UiItinerary(
+            id = "it1",
+            userId = "user1",
+            title = "Weekend à Paris",
+            description = "Petit séjour romantique dans la capitale.",
+            destination = "Paris",
+            createdAt = System.currentTimeMillis(),
+            startDate = "12/06",
+            endDate = "14/06",
+            activities = sampleActivities,
+            latitude = 48.8566,
+            longitude = 2.3522
+        ),
+        UiItinerary(
+            id = "it2",
+            userId = "user1",
+            title = "Escapade à Londres",
+            description = "Shopping et fish & chips.",
+            destination = "London",
+            createdAt = System.currentTimeMillis() - 86400000,
+            startDate = "20/07",
+            endDate = "22/07",
+            activities = emptyList(),
+            latitude = 51.5074,
+            longitude = -0.1278
+        )
+    )
+
     TravelPasCherTheme {
-        EmptyItineraryView()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Mes Parcours (Preview)",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                items(sampleItineraries) { itinerary ->
+                    ItineraryCard(
+                        itinerary = itinerary,
+                        onDelete = {},
+                        onAddActivity = {},
+                        onDeleteActivity = {}
+                    )
+                }
+            }
+        }
     }
 }

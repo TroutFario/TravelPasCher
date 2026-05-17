@@ -6,16 +6,12 @@ plugins {
 
 android {
     namespace = "fr.troubidoo.travelpascher"
-    compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
-    }
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "fr.troubidoo.travelpascher"
         minSdk = 24
-        targetSdk = 38
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -89,4 +85,6 @@ dependencies {
 
     implementation(libs.play.services.safetynet)
     implementation(libs.play.services.cronet)
+    implementation(libs.play.services.maps)
+    implementation(libs.maps.compose)
 }
