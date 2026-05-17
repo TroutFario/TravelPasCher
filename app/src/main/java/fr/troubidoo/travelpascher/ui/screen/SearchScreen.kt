@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -21,12 +20,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -53,13 +50,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
+import fr.troubidoo.travelpascher.ui.components.CommentDialog
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
 import fr.troubidoo.travelpascher.viewmodel.UiItinerary
 import fr.troubidoo.travelpascher.viewmodel.UiPost
 import fr.troubidoo.travelpascher.viewmodel.UiUser
-import kotlinx.coroutines.delay
-import fr.troubidoo.travelpascher.ui.screen.PostDetailDialog
-import fr.troubidoo.travelpascher.ui.components.CommentDialog
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -89,7 +84,6 @@ fun SearchScreen(
     var selectedPostForDetail by remember { mutableStateOf<UiPost?>(null) }
     var selectedPostIdForComments by remember { mutableStateOf<String?>(null) }
 
-    // Logic for filtering
     val filteredPosts = remember(postResults, selectedFilter) {
         when (selectedFilter) {
             "Plus aimés" -> postResults.sortedByDescending { it.likedBy.size }
@@ -100,12 +94,18 @@ fun SearchScreen(
 
     val filteredItineraries = remember(itineraryResults, selectedFilter) {
         if (selectedFilter == "Tous") itineraryResults
-        else itineraryResults.filter { it.activities.any { act -> act.category.contains(selectedFilter.dropLast(1), ignoreCase = true) } }
+        else itineraryResults.filter {
+            it.activities.any { act ->
+                act.category.contains(
+                    selectedFilter.dropLast(1),
+                    ignoreCase = true
+                )
+            }
+        }
     }
 
     LaunchedEffect(searchQuery, selectedTabIndex) {
         if (searchQuery.length >= 2) {
-            // delay(300) // Debounce
             when (selectedTabIndex) {
                 0 -> viewModel.searchUsers(searchQuery)
                 1 -> viewModel.searchPosts(searchQuery)
@@ -122,14 +122,23 @@ fun SearchScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_button))
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.back_button)
+                )
             }
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = { searchQuery = it },
                 modifier = Modifier.weight(1f),
                 placeholder = { Text("Rechercher...") },
-                leadingIcon = { Icon(painterResource(R.drawable.outline_search_24), contentDescription = null, modifier = Modifier.size(20.dp)) },
+                leadingIcon = {
+                    Icon(
+                        painterResource(R.drawable.outline_search_24),
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                },
                 shape = RoundedCornerShape(24.dp),
                 singleLine = true
             )
@@ -142,19 +151,20 @@ fun SearchScreen(
             tabs.forEachIndexed { index, title ->
                 Tab(
                     selected = selectedTabIndex == index,
-                    onClick = { 
-                        selectedTabIndex = index 
-                        selectedFilter = "Tous" // Reset filter on tab change
+                    onClick = {
+                        selectedTabIndex = index
+                        selectedFilter = "Tous"
                     },
                     text = { Text(title) }
                 )
             }
         }
 
-        // Filter chips row
         if (selectedTabIndex > 0) {
             LazyRow(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 val filters = if (selectedTabIndex == 1) postFilters else itineraryFilters
@@ -179,11 +189,13 @@ fun SearchScreen(
                         UserSearchItem(user, onClick = { onUserClick(user.id) })
                     }
                 }
+
                 1 -> {
                     items(filteredPosts) { post ->
                         PostSearchItem(post, onClick = { selectedPostForDetail = post })
                     }
                 }
+
                 2 -> {
                     items(filteredItineraries) { itinerary ->
                         ItinerarySearchItem(itinerary)
@@ -216,7 +228,13 @@ fun SearchScreen(
             },
             onSendComment = { text -> viewModel.addComment(postId, text) },
             onDeleteComment = { commentId -> viewModel.deleteComment(postId, commentId) },
-            onUpdateComment = { commentId, text -> viewModel.updateComment(postId, commentId, text) }
+            onUpdateComment = { commentId, text ->
+                viewModel.updateComment(
+                    postId,
+                    commentId,
+                    text
+                )
+            }
         )
     }
 }
@@ -259,7 +277,11 @@ fun PostSearchItem(post: UiPost, onClick: () -> Unit) {
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.padding(8.dp)) {
-                Text(text = post.location, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    text = post.location,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
                 Text(text = "Par ${post.username}", style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -273,9 +295,16 @@ fun ItinerarySearchItem(itinerary: UiItinerary) {
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = itinerary.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                text = itinerary.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
             Text(text = itinerary.destination, color = MaterialTheme.colorScheme.primary)
-            Text(text = "${itinerary.activities.size} activités", style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = "${itinerary.activities.size} activités",
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

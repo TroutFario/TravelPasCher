@@ -440,7 +440,7 @@ class FeedViewModel : ViewModel() {
                     val userData = hashMapOf(
                         "id" to firebaseUser.uid,
                         "username" to username,
-                        "usernameLowercase" to username.normalize(), // Champ de recherche
+                        "usernameLowercase" to username.normalize(),
                         "email" to email,
                         "firstName" to firstName,
                         "lastName" to lastName,
@@ -489,7 +489,7 @@ class FeedViewModel : ViewModel() {
             try {
                 val updates = hashMapOf(
                     "username" to username,
-                    "usernameLowercase" to username.normalize(), // Champ de recherche
+                    "usernameLowercase" to username.normalize(),
                     "firstName" to firstName,
                     "lastName" to lastName,
                     "bio" to bio,
@@ -571,7 +571,8 @@ class FeedViewModel : ViewModel() {
                     .whereGreaterThanOrEqualTo("usernameLowercase", normalizedQuery)
                     .whereLessThanOrEqualTo("usernameLowercase", normalizedQuery + "\uf8ff")
                     .get().await()
-                _searchResultsUsers.value = snapshot.documents.mapNotNull { UiUser.fromSnapshot(it) }
+                _searchResultsUsers.value =
+                    snapshot.documents.mapNotNull { UiUser.fromSnapshot(it) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -590,7 +591,8 @@ class FeedViewModel : ViewModel() {
                     .whereGreaterThanOrEqualTo("locationLowercase", normalizedQuery)
                     .whereLessThanOrEqualTo("locationLowercase", normalizedQuery + "\uf8ff")
                     .get().await()
-                _searchResultsPosts.value = snapshot.documents.mapNotNull { UiPost.fromSnapshot(it) }
+                _searchResultsPosts.value =
+                    snapshot.documents.mapNotNull { UiPost.fromSnapshot(it) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -609,7 +611,8 @@ class FeedViewModel : ViewModel() {
                     .whereGreaterThanOrEqualTo("destinationLowercase", normalizedQuery)
                     .whereLessThanOrEqualTo("destinationLowercase", normalizedQuery + "\uf8ff")
                     .get().await()
-                _searchResultsItineraries.value = snapshot.documents.mapNotNull { UiItinerary.fromSnapshot(it) }
+                _searchResultsItineraries.value =
+                    snapshot.documents.mapNotNull { UiItinerary.fromSnapshot(it) }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -894,7 +897,7 @@ class FeedViewModel : ViewModel() {
             "title" to title,
             "description" to description,
             "destination" to destination,
-            "destinationLowercase" to destination.normalize(), // Champ de recherche
+            "destinationLowercase" to destination.normalize(),
             "createdAt" to System.currentTimeMillis(),
             "latitude" to lat,
             "longitude" to lon,

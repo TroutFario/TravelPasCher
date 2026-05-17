@@ -10,7 +10,6 @@
     <string name="comment">Commenter</string>
     <string name="share">Partager</string>
     <string name="save">Enregistrer</string>
-    <string name="my_profile">Mon Profil</string>
     <string name="globe">Globe</string>
     <string name="itineraries">Itinéraires</string>
     <string name="profile">Profil</string>
@@ -70,4 +69,5 @@
     <string name="post_comment_button">Publier</string>
     <string name="no_comments_yet">Pas encore de commentaires. Soyez le premier !</string>
     <string name="add_image_button">Ajouter une image</string>
+    <string name="my_profile">Mon Profil</string>
 </resources>

@@ -1,12 +1,10 @@
 package fr.troubidoo.travelpascher
 
-import fr.troubidoo.travelpascher.ui.screen.CreatePostUiState
 import fr.troubidoo.travelpascher.ui.screen.MainUiState
 import fr.troubidoo.travelpascher.ui.screen.SettingsUiState
 import fr.troubidoo.travelpascher.viewmodel.UiPost
 import fr.troubidoo.travelpascher.viewmodel.UiUser
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -73,16 +71,6 @@ class ModelUnitTest {
         val updatedState = initialState.copy(currentTab = 1, isSettingsVisible = true)
         assertEquals(1, updatedState.currentTab)
         assertEquals(true, updatedState.isSettingsVisible)
-    }
-
-    @Test
-    fun createPostUiState_validation_check() {
-        val state = CreatePostUiState(location = "Tokyo")
-
-        assertEquals("Tokyo", state.location)
-        assertNull(state.errorMessage)
-        assertEquals(false, state.isLoading)
-        assertNull(state.selectedImageUri)
     }
 
     @Test

@@ -68,19 +68,20 @@ fun MainScreen(viewModel: FeedViewModel) {
 
     MainScreenContent(
         currentTab = uiState.currentTab,
-        onTabSelected = { uiState = uiState.copy(currentTab = it, isSavedVisible = false, isSearchVisible = false) },
+        onTabSelected = {
+            uiState = uiState.copy(currentTab = it, isSavedVisible = false, isSearchVisible = false)
+        },
         userData = userData,
         showBars = !uiState.isSettingsVisible && !uiState.isSavedVisible && !uiState.isSearchVisible,
         onSavedClick = { uiState = uiState.copy(isSavedVisible = true) },
-        onSearchClick = { 
-            // Ouvre la recherche sur l'onglet le plus pertinent
-            val searchTab = when(uiState.currentTab) {
-                0, 1 -> 1 // Photos
-                3 -> 2 // Parcours
-                4 -> 0 // Voyageurs
+        onSearchClick = {
+            val searchTab = when (uiState.currentTab) {
+                0, 1 -> 1
+                3 -> 2
+                4 -> 0
                 else -> 0
             }
-            uiState = uiState.copy(isSearchVisible = true, searchInitialTab = searchTab) 
+            uiState = uiState.copy(isSearchVisible = true, searchInitialTab = searchTab)
         },
         content = {
             if (uiState.isSettingsVisible) {

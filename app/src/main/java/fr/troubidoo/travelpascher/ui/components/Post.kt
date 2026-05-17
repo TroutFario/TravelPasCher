@@ -128,7 +128,8 @@ fun Post(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            val displayedLocation = if (location.length > 23) location.take(23) + "..." else location
+                            val displayedLocation =
+                                if (location.length > 23) location.take(23) + "..." else location
                             Text(
                                 text = displayedLocation,
                                 color = MaterialTheme.colorScheme.primary,
