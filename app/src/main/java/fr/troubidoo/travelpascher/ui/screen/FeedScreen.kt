@@ -10,9 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -24,10 +22,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fr.troubidoo.travelpascher.R
+import fr.troubidoo.travelpascher.ui.components.CommentDialog
 import fr.troubidoo.travelpascher.ui.components.Post
-import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
-import fr.troubidoo.travelpascher.viewmodel.UiPost
-import fr.troubidoo.travelpascher.viewmodel.UiStory
+import fr.troubidoo.travelpascher.viewmodel.*
 
 @Composable
 fun FeedScreen(viewModel: FeedViewModel) {
@@ -36,6 +33,9 @@ fun FeedScreen(viewModel: FeedViewModel) {
     val stories by viewModel.stories.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
     val currentUser by viewModel.currentUser.collectAsState()
+    val comments by viewModel.currentPostComments.collectAsState()
+
+    var selectedPostIdForComments by remember { mutableStateOf<String?>(null) }
     
     FeedScreenContent(
         stories = stories,
@@ -43,8 +43,25 @@ fun FeedScreen(viewModel: FeedViewModel) {
         isRefreshing = isRefreshing,
         currentUserId = currentUser?.uid,
         onRefresh = { viewModel.refresh() },
-        onLikeClick = { postId -> viewModel.toggleLike(postId) }
+        onLikeClick = { postId -> viewModel.toggleLike(postId) },
+        onCommentClick = { postId ->
+            selectedPostIdForComments = postId
+            viewModel.listenToComments(postId)
+        }
     )
+
+    selectedPostIdForComments?.let { postId: String ->
+        CommentDialog(
+            comments = comments,
+            currentUserId = currentUser?.uid,
+            onDismiss = {
+                viewModel.stopListeningToComments()
+            },
+            onSendComment = { text: String -> viewModel.addComment(postId, text) },
+            onDeleteComment = { commentId: String -> viewModel.deleteComment(postId, commentId) },
+            onUpdateComment = { commentId: String, text: String -> viewModel.updateComment(postId, commentId, text) }
+        )
+    }
 }
 
 @Composable
@@ -54,7 +71,8 @@ fun FeedScreenContent(
     isRefreshing: Boolean = false,
     currentUserId: String? = null,
     onRefresh: () -> Unit = {},
-    onLikeClick: (String) -> Unit = {}
+    onLikeClick: (String) -> Unit = {},
+    onCommentClick: (String) -> Unit = {}
 ) {
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -78,7 +96,8 @@ fun FeedScreenContent(
                     authorProfileImageUrl = post.authorProfileImageUrl,
                     isLiked = currentUserId != null && post.likedBy.contains(currentUserId),
                     likeCount = post.likedBy.size,
-                    onLikeClick = { onLikeClick(post.id) }
+                    onLikeClick = { onLikeClick(post.id) },
+                    onCommentClick = { onCommentClick(post.id) }
                 )
             }
         }
@@ -151,6 +170,7 @@ fun FeedScreenPreview() {
         isRefreshing = false,
         currentUserId = null,
         onRefresh = {},
-        onLikeClick = {}
+        onLikeClick = {},
+        onCommentClick = {}
     )
 }

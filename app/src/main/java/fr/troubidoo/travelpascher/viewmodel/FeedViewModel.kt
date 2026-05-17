@@ -43,6 +43,15 @@ data class UiUser(
     val profileImageUrl: String = ""
 )
 
+data class UiComment(
+    val id: String,
+    val userId: String,
+    val username: String,
+    val userProfileImageUrl: String = "",
+    val text: String,
+    val createdAt: Long
+)
+
 class FeedViewModel : ViewModel() {
 
     private val db = Firebase.firestore
@@ -64,6 +73,12 @@ class FeedViewModel : ViewModel() {
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
+
+    // Liste des commentaires pour le post actuellement ouvert
+    private val _currentPostComments = MutableStateFlow<List<UiComment>>(emptyList())
+    val currentPostComments = _currentPostComments.asStateFlow()
+
+    private var commentsListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     init {
         listenToFirestorePosts()
@@ -376,6 +391,79 @@ class FeedViewModel : ViewModel() {
             } catch (e: Exception) {
                 android.util.Log.e("DELETE_POST", "Failed to delete firestore document", e)
                 onError(e.message ?: "Erreur lors de la suppression")
+            }
+        }
+    }
+
+    // --- Gestion des commentaires ---
+
+    fun listenToComments(postId: String) {
+        commentsListener?.remove()
+        commentsListener = db.collection("posts").document(postId).collection("comments")
+            .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.ASCENDING)
+            .addSnapshotListener { snapshots, e ->
+                if (e != null) return@addSnapshotListener
+                if (snapshots != null) {
+                    val list = snapshots.documents.mapNotNull { doc ->
+                        UiComment(
+                            id = doc.id,
+                            userId = doc.getString("userId") ?: "",
+                            username = doc.getString("username") ?: "Anonymous",
+                            userProfileImageUrl = doc.getString("userProfileImageUrl") ?: "",
+                            text = doc.getString("text") ?: "",
+                            createdAt = doc.getLong("createdAt") ?: 0L
+                        )
+                    }
+                    _currentPostComments.value = list
+                }
+            }
+    }
+
+    fun stopListeningToComments() {
+        commentsListener?.remove()
+        _currentPostComments.value = emptyList()
+    }
+
+    fun addComment(postId: String, text: String) {
+        val user = auth.currentUser ?: return
+        val username = _userData.value?.username?.ifBlank { null } ?: user.displayName ?: "Anonymous"
+        val profileUrl = _userData.value?.profileImageUrl ?: ""
+
+        val commentData = hashMapOf(
+            "userId" to user.uid,
+            "username" to username,
+            "userProfileImageUrl" to profileUrl,
+            "text" to text,
+            "createdAt" to System.currentTimeMillis()
+        )
+
+        viewModelScope.launch {
+            try {
+                db.collection("posts").document(postId).collection("comments").add(commentData).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun updateComment(postId: String, commentId: String, newText: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("posts").document(postId).collection("comments").document(commentId)
+                    .update("text", newText).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteComment(postId: String, commentId: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("posts").document(postId).collection("comments").document(commentId)
+                    .delete().await()
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }

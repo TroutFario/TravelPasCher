@@ -60,6 +60,10 @@
     <string name="bio_label">Bio</string>
     <string name="save_profile_button">Save Profile</string>
     <string name="add_profile_pic_label">Add profile picture</string>
+    <string name="no_comments_yet">No comments yet. Be the first!</string>
+    <string name="comments_title">Comments</string>
+    <string name="add_comment_hint">Add a comment…</string>
+    <string name="post_comment_button">Post</string>
 
     <!-- Feed ViewModel / Errors -->
 </resources>

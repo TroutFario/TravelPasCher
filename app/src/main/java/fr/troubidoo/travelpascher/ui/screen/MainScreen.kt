@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
+import fr.troubidoo.travelpascher.ui.components.CommentDialog
 import fr.troubidoo.travelpascher.ui.screen.auth.AuthScreen
 import fr.troubidoo.travelpascher.ui.theme.TravelPasCherTheme
 import fr.troubidoo.travelpascher.viewmodel.*
@@ -114,7 +116,9 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
     val currentUser by viewModel.currentUser.collectAsState()
     val userData by viewModel.userData.collectAsState()
     val allPosts by viewModel.posts.collectAsState()
+    val comments by viewModel.currentPostComments.collectAsState()
     var profileState by remember { mutableStateOf(ProfileUiState()) }
+    var selectedPostIdForComments by remember { mutableStateOf<String?>(null) }
 
     val userPosts = remember(allPosts, currentUser) {
         allPosts.filter { it.userId == currentUser?.uid }
@@ -142,7 +146,24 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
             onDelete = {
                 viewModel.deletePost(post.id, post.imageUrl)
                 profileState = profileState.copy(selectedPost = null)
+            },
+            onCommentClick = {
+                selectedPostIdForComments = post.id
+                viewModel.listenToComments(post.id)
             }
+        )
+    }
+
+    selectedPostIdForComments?.let { postId: String ->
+        CommentDialog(
+            comments = comments,
+            currentUserId = currentUser?.uid,
+            onDismiss = {
+                viewModel.stopListeningToComments()
+            },
+            onSendComment = { text: String -> viewModel.addComment(postId, text) },
+            onDeleteComment = { commentId: String -> viewModel.deleteComment(postId, commentId) },
+            onUpdateComment = { commentId: String, text: String -> viewModel.updateComment(postId, commentId, text) }
         )
     }
 }
@@ -152,7 +173,8 @@ fun PostDetailDialog(
     post: UiPost,
     onDismiss: () -> Unit,
     onUpdate: (String) -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onCommentClick: () -> Unit
 ) {
     var isEditing by remember { mutableStateOf(false) }
     var location by remember { mutableStateOf(post.location) }
@@ -220,6 +242,9 @@ fun PostDetailDialog(
                     ) {
                         IconButton(onClick = { isEditing = true }) {
                             Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.edit_action), tint = MaterialTheme.colorScheme.primary)
+                        }
+                        IconButton(onClick = onCommentClick) {
+                            Icon(Icons.Default.ChatBubbleOutline, contentDescription = stringResource(R.string.comment), tint = MaterialTheme.colorScheme.primary)
                         }
                         IconButton(onClick = onDelete) {
                             Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.delete_action), tint = MaterialTheme.colorScheme.error)
