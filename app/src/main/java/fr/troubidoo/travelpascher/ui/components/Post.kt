@@ -128,8 +128,9 @@ fun Post(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
+                            val displayedLocation = if (location.length > 30) location.take(27) + "..." else location
                             Text(
-                                text = location,
+                                text = displayedLocation,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.clickable {
                                     val uri = if (latitude != null && longitude != null) {
