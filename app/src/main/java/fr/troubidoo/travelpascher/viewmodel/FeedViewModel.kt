@@ -52,6 +52,26 @@ data class UiComment(
     val createdAt: Long
 )
 
+// Modèles pour les Itinéraires et Activités
+data class UiItinerary(
+    val id: String,
+    val userId: String,
+    val title: String,
+    val description: String,
+    val destination: String,
+    val createdAt: Long,
+    val activities: List<UiActivity> = emptyList()
+)
+
+data class UiActivity(
+    val id: String = "",
+    val name: String,
+    val description: String,
+    val location: String,
+    val category: String, // ex: Restaurant, Musée, Parc
+    val rating: Double = 0.0
+)
+
 class FeedViewModel : ViewModel() {
 
     private val db = Firebase.firestore
@@ -78,12 +98,17 @@ class FeedViewModel : ViewModel() {
     private val _currentPostComments = MutableStateFlow<List<UiComment>>(emptyList())
     val currentPostComments = _currentPostComments.asStateFlow()
 
+    private val _itineraries = MutableStateFlow<List<UiItinerary>>(emptyList())
+    val itineraries = _itineraries.asStateFlow()
+
     private var commentsListener: com.google.firebase.firestore.ListenerRegistration? = null
+    private var itinerariesListener: com.google.firebase.firestore.ListenerRegistration? = null
 
     init {
         listenToFirestorePosts()
         listenToFirestoreStories()
         listenToUserData()
+        listenToItineraries()
     }
 
     private fun listenToUserData() {
@@ -462,6 +487,88 @@ class FeedViewModel : ViewModel() {
             try {
                 db.collection("posts").document(postId).collection("comments").document(commentId)
                     .delete().await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    // --- Gestion des Itinéraires ---
+
+    private fun listenToItineraries() {
+        val user = auth.currentUser
+        itinerariesListener?.remove()
+        
+        if (user != null) {
+            itinerariesListener = db.collection("itineraries")
+                .whereEqualTo("userId", user.uid)
+                .orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .addSnapshotListener { snapshots, e ->
+                    if (e != null) return@addSnapshotListener
+                    if (snapshots != null) {
+                        val list = snapshots.documents.mapNotNull { doc ->
+                            val activitiesData = doc.get("activities") as? List<Map<String, Any>> ?: emptyList()
+                            val activities = activitiesData.map { act ->
+                                UiActivity(
+                                    id = act["id"]?.toString() ?: "",
+                                    name = act["name"]?.toString() ?: "",
+                                    description = act["description"]?.toString() ?: "",
+                                    location = act["location"]?.toString() ?: "",
+                                    category = act["category"]?.toString() ?: "",
+                                    rating = (act["rating"] as? Number)?.toDouble() ?: 0.0
+                                )
+                            }
+                            UiItinerary(
+                                id = doc.id,
+                                userId = doc.getString("userId") ?: "",
+                                title = doc.getString("title") ?: "",
+                                description = doc.getString("description") ?: "",
+                                destination = doc.getString("destination") ?: "",
+                                createdAt = doc.getLong("createdAt") ?: 0L,
+                                activities = activities
+                            )
+                        }
+                        _itineraries.value = list
+                    }
+                }
+        } else {
+            _itineraries.value = emptyList()
+        }
+    }
+
+    fun addItinerary(title: String, description: String, destination: String, activities: List<UiActivity>) {
+        val user = auth.currentUser ?: return
+        val itineraryData = hashMapOf(
+            "userId" to user.uid,
+            "title" to title,
+            "description" to description,
+            "destination" to destination,
+            "createdAt" to System.currentTimeMillis(),
+            "activities" to activities.map {
+                hashMapOf(
+                    "id" to java.util.UUID.randomUUID().toString(),
+                    "name" to it.name,
+                    "description" to it.description,
+                    "location" to it.location,
+                    "category" to it.category,
+                    "rating" to it.rating
+                )
+            }
+        )
+
+        viewModelScope.launch {
+            try {
+                db.collection("itineraries").add(itineraryData).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun deleteItinerary(itineraryId: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("itineraries").document(itineraryId).delete().await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
