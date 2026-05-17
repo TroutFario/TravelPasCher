@@ -3,6 +3,10 @@ package fr.troubidoo.travelpascher.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import android.net.Uri
+import com.google.android.libraries.places.api.Places
+import com.google.android.libraries.places.api.model.CircularBounds
+import com.google.android.libraries.places.api.model.Place
+import com.google.android.libraries.places.api.net.SearchNearbyRequest
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -24,7 +28,9 @@ data class UiPost(
     val location: String,
     val imageUrl: String,
     val createdAt: Long,
-    val likedBy: List<String> = emptyList()
+    val likedBy: List<String> = emptyList(),
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class UiStory(
@@ -40,7 +46,8 @@ data class UiUser(
     val firstName: String,
     val lastName: String,
     val bio: String = "",
-    val profileImageUrl: String = ""
+    val profileImageUrl: String = "",
+    val preferredCategories: List<String> = emptyList()
 )
 
 data class UiComment(
@@ -143,7 +150,8 @@ class FeedViewModel : ViewModel() {
                                     firstName = snapshot.getString("firstName") ?: "",
                                     lastName = snapshot.getString("lastName") ?: "",
                                     bio = snapshot.getString("bio") ?: "",
-                                    profileImageUrl = snapshot.getString("profileImageUrl") ?: ""
+                                    profileImageUrl = snapshot.getString("profileImageUrl") ?: "",
+                                    preferredCategories = snapshot.get("preferredCategories") as? List<String> ?: emptyList()
                                 )
                             }
                         }
@@ -170,7 +178,9 @@ class FeedViewModel : ViewModel() {
                             location = doc.getString("location") ?: "",
                             imageUrl = doc.getString("imageUrl") ?: "",
                             createdAt = doc.getLong("createdAt") ?: 0L,
-                            likedBy = doc.get("likedBy") as? List<String> ?: emptyList()
+                            likedBy = doc.get("likedBy") as? List<String> ?: emptyList(),
+                            latitude = (doc.get("latitude") as? Number)?.toDouble(),
+                            longitude = (doc.get("longitude") as? Number)?.toDouble()
                         )
                     }
                     _posts.value = list
@@ -198,6 +208,8 @@ class FeedViewModel : ViewModel() {
     fun uploadPost(
         location: String,
         imageUri: Uri? = null,
+        lat: Double? = null,
+        lon: Double? = null,
         onSuccess: () -> Unit = {},
         onError: (String) -> Unit = {}
     ) {
@@ -235,7 +247,9 @@ class FeedViewModel : ViewModel() {
                     "location" to location,
                     "imageUrl" to imageUrl,
                     "createdAt" to System.currentTimeMillis(),
-                    "likedBy" to arrayListOf<String>()
+                    "likedBy" to arrayListOf<String>(),
+                    "latitude" to lat,
+                    "longitude" to lon
                 )
 
                 db.collection("posts").add(postData).await()
@@ -345,14 +359,15 @@ class FeedViewModel : ViewModel() {
         }
     }
 
-    fun updateUserProfile(firstName: String, lastName: String, bio: String, newProfileImageUri: Uri? = null, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
+    fun updateUserProfile(firstName: String, lastName: String, bio: String, preferredCategories: List<String> = emptyList(), newProfileImageUri: Uri? = null, onSuccess: () -> Unit = {}, onError: (String) -> Unit = {}) {
         val user = auth.currentUser ?: return
         viewModelScope.launch {
             try {
                 val updates = hashMapOf<String, Any>(
                     "firstName" to firstName,
                     "lastName" to lastName,
-                    "bio" to bio
+                    "bio" to bio,
+                    "preferredCategories" to preferredCategories
                 )
 
                 if (newProfileImageUri != null) {
@@ -666,6 +681,166 @@ class FeedViewModel : ViewModel() {
                 e.printStackTrace()
             }
         }
+    }
+
+    fun searchActivitiesNearby(lat: Double, lon: Double, type: String? = null) {
+        viewModelScope.launch {
+            try {
+                _isRefreshing.value = true
+                val results = fetchActivitiesFromGoogle(lat, lon, type)
+                if (results.isNotEmpty()) {
+                    _globalActivities.value = results
+                } else {
+                    fetchGlobalActivities()
+                }
+                _isRefreshing.value = false
+            } catch (e: Exception) {
+                fetchGlobalActivities()
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun generateSmartItinerary(
+        title: String,
+        description: String,
+        destination: String,
+        lat: Double?,
+        lon: Double?,
+        startDate: String,
+        endDate: String
+    ) {
+        if (lat == null || lon == null) return
+
+        viewModelScope.launch {
+            try {
+                _isRefreshing.value = true
+                
+                // 1. Durée du voyage
+                val durationInDays = calculateDurationInDays(startDate, endDate)
+                val maxTotalCapacity = durationInDays * 3
+                
+                // 2. Recherche d'activités via Google Places
+                val nearbyActivities = fetchActivitiesFromGoogle(lat, lon)
+                
+                // 3. Filtrer et scorer selon les préférences
+                val userPrefs = _userData.value?.preferredCategories ?: emptyList()
+                val scoredActivities = nearbyActivities.map { act ->
+                    val dist = calculateDistance(lat, lon, act.latitude ?: 0.0, act.longitude ?: 0.0)
+                    // On vérifie si la catégorie de l'activité (ou ses types Google) matchent les prefs
+                    val isPreferred = userPrefs.any { pref -> act.category.contains(pref, ignoreCase = true) }
+                    val score = dist * (if (isPreferred) 0.5 else 1.0)
+                    Triple(act, dist, score)
+                }.sortedBy { it.third }
+                
+                // 4. Sélection intelligente
+                val selectedActivities = mutableListOf<UiActivity>()
+                var currentUsedCapacity = 0
+                var museumCount = 0
+
+                for (triple in scoredActivities) {
+                    val activity = triple.first
+                    val cost = when (activity.category.lowercase()) {
+                        "museum", "art_gallery", "musée" -> 2
+                        else -> 1
+                    }
+
+                    val isMuseum = activity.category.lowercase().contains("museum") || activity.category.lowercase().contains("musée")
+                    val canAddMuseum = !isMuseum || museumCount < durationInDays
+                    
+                    if (currentUsedCapacity + cost <= maxTotalCapacity && canAddMuseum) {
+                        selectedActivities.add(activity)
+                        currentUsedCapacity += cost
+                        if (cost == 2) museumCount++
+                    }
+                    
+                    if (currentUsedCapacity >= maxTotalCapacity) break
+                }
+
+                // 5. Créer le parcours
+                addItinerary(title, description, destination, selectedActivities, lat, lon, startDate, endDate)
+                _isRefreshing.value = false
+            } catch (e: Exception) {
+                android.util.Log.e("PLACES", "Error generating itinerary", e)
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    private suspend fun fetchActivitiesFromGoogle(lat: Double, lon: Double, specificType: String? = null): List<UiActivity> {
+        val context = com.google.firebase.Firebase.auth.app.applicationContext
+        val placesClient = com.google.android.libraries.places.api.Places.createClient(context)
+        
+        val placeFields = listOf(
+            Place.Field.ID,
+            Place.Field.DISPLAY_NAME,
+            Place.Field.TYPES,
+            Place.Field.RATING,
+            Place.Field.LOCATION,
+            Place.Field.PRICE_LEVEL
+        )
+
+        val center = com.google.android.gms.maps.model.LatLng(lat, lon)
+        val circle = CircularBounds.newInstance(center, 10000.0) // 10km radius
+
+        val allResults = mutableListOf<UiActivity>()
+        // Si un type est spécifié, on n'interroge que lui, sinon toute la liste
+        val types = if (specificType != null) listOf(specificType) 
+                    else listOf("tourist_attraction", "museum", "park", "restaurant", "cafe", "lodging", "shopping_mall")
+
+        for (type in types) {
+            val request = SearchNearbyRequest.builder(circle, placeFields)
+                .setIncludedTypes(listOf(type))
+                .setMaxResultCount(20)
+                .build()
+
+            try {
+                val response = placesClient.searchNearby(request).await()
+                val activities = response.places.map { p ->
+                    UiActivity(
+                        id = p.id ?: "",
+                        name = p.displayName ?: "Lieu inconnu",
+                        description = "Recommandé par Google",
+                        location = "",
+                        category = p.placeTypes?.firstOrNull() ?: type,
+                        rating = p.rating ?: 0.0,
+                        latitude = p.location?.latitude,
+                        longitude = p.location?.longitude,
+                        price = (p.priceLevel?.toDouble() ?: 0.0) * 10.0
+                    )
+                }
+                allResults.addAll(activities)
+            } catch (e: Exception) {
+                android.util.Log.e("PLACES", "Search failed for $type", e)
+            }
+        }
+        return allResults.distinctBy { it.id }
+    }
+
+    private fun calculateDurationInDays(start: String, end: String): Int {
+        return try {
+            val sdf = java.text.SimpleDateFormat("dd/MM", java.util.Locale.getDefault())
+            val startDate = sdf.parse(start)
+            val endDate = sdf.parse(end)
+            if (startDate != null && endDate != null) {
+                val diff = endDate.time - startDate.time
+                val days = (diff / (1000 * 60 * 60 * 24)).toInt() + 1
+                if (days > 0) days else 1
+            } else 1
+        } catch (e: Exception) {
+            1 // Par défaut 1 jour si les dates sont mal saisies
+        }
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371 // km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
     }
 
     private fun fetchGlobalActivities() {

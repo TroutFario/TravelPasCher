@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
@@ -28,6 +30,7 @@ data class SettingsUiState(
     val firstName: String = "",
     val lastName: String = "",
     val bio: String = "",
+    val preferredCategories: List<String> = emptyList(),
     val selectedImageUri: Uri? = null,
     val isLoading: Boolean = false,
     val message: String? = null
@@ -41,13 +44,24 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             SettingsUiState(
                 firstName = userData?.firstName ?: "",
                 lastName = userData?.lastName ?: "",
-                bio = userData?.bio ?: ""
+                bio = userData?.bio ?: "",
+                preferredCategories = userData?.preferredCategories ?: emptyList()
             )
         )
     }
     
     val successMessage = stringResource(R.string.profile_updated_success)
     val scrollState = rememberScrollState()
+
+    val categoryMap = mapOf(
+        "tourist_attraction" to "Attractions",
+        "museum" to "Musées",
+        "park" to "Parcs",
+        "restaurant" to "Restos",
+        "cafe" to "Cafés",
+        "lodging" to "Hôtels",
+        "shopping_mall" to "Shopping"
+    )
 
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -138,6 +152,48 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             enabled = !settingsState.isLoading
         )
 
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Préférences d'activités",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth(),
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Quels types de lieux préférez-vous visiter ?",
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.outline
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grille de sélection des catégories
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            categoryMap.forEach { (type, label) ->
+                val isSelected = settingsState.preferredCategories.contains(type)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = {
+                        val newList = if (isSelected) {
+                            settingsState.preferredCategories - type
+                        } else {
+                            settingsState.preferredCategories + type
+                        }
+                        settingsState = settingsState.copy(preferredCategories = newList)
+                    },
+                    label = { Text(label) },
+                    leadingIcon = if (isSelected) {
+                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                    } else null
+                )
+            }
+        }
+
         if (settingsState.message != null) {
             Spacer(modifier = Modifier.height(16.dp))
             val isSuccess = settingsState.message == successMessage
@@ -156,6 +212,7 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                     firstName = settingsState.firstName,
                     lastName = settingsState.lastName,
                     bio = settingsState.bio,
+                    preferredCategories = settingsState.preferredCategories,
                     newProfileImageUri = settingsState.selectedImageUri,
                     onSuccess = {
                         settingsState = settingsState.copy(

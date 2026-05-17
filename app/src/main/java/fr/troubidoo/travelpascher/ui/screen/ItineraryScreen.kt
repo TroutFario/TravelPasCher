@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.google.android.gms.maps.model.CameraPosition
@@ -31,11 +33,22 @@ import kotlin.math.*
 @Composable
 fun ItineraryScreen(viewModel: FeedViewModel) {
     val itineraries by viewModel.itineraries.collectAsState()
-    val globalActivities by viewModel.globalActivities.collectAsState()
     val isRefreshing by viewModel.isRefreshing.collectAsState()
+    
+    // On observe une liste d'activités de découverte qui sera mise à jour dynamiquement
+    val discoveryActivities by viewModel.globalActivities.collectAsState()
     
     var showAddItineraryDialog by remember { mutableStateOf(false) }
     var selectedItineraryForActivity by remember { mutableStateOf<UiItinerary?>(null) }
+
+    // Quand on ouvre le dialogue d'ajout d'activité, on lance la recherche Google
+    LaunchedEffect(selectedItineraryForActivity) {
+        selectedItineraryForActivity?.let { itinerary ->
+            if (itinerary.latitude != null && itinerary.longitude != null) {
+                viewModel.searchActivitiesNearby(itinerary.latitude, itinerary.longitude)
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -94,8 +107,12 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
     if (showAddItineraryDialog) {
         AddItineraryDialog(
             onDismiss = { showAddItineraryDialog = false },
-            onConfirm = { title, desc, dest, lat, lon, start, end ->
-                viewModel.addItinerary(title, desc, dest, emptyList(), lat, lon, start, end)
+            onConfirm = { title, desc, dest, lat, lon, start, end, isSmart ->
+                if (isSmart) {
+                    viewModel.generateSmartItinerary(title, desc, dest, lat, lon, start, end)
+                } else {
+                    viewModel.addItinerary(title, desc, dest, emptyList(), lat, lon, start, end)
+                }
                 showAddItineraryDialog = false
             }
         )
@@ -104,11 +121,16 @@ fun ItineraryScreen(viewModel: FeedViewModel) {
     selectedItineraryForActivity?.let { itinerary ->
         AddActivityDialog(
             itinerary = itinerary,
-            availableActivities = globalActivities,
+            availableActivities = discoveryActivities,
             onDismiss = { selectedItineraryForActivity = null },
             onConfirm = { activity ->
                 viewModel.addActivityToItinerary(itinerary.id, activity)
                 selectedItineraryForActivity = null
+            },
+            onSearch = { type ->
+                if (itinerary.latitude != null && itinerary.longitude != null) {
+                    viewModel.searchActivitiesNearby(itinerary.latitude, itinerary.longitude, type)
+                }
             }
         )
     }
@@ -245,44 +267,81 @@ fun AddActivityDialog(
     itinerary: UiItinerary,
     availableActivities: List<UiActivity>,
     onDismiss: () -> Unit,
-    onConfirm: (UiActivity) -> Unit
+    onConfirm: (UiActivity) -> Unit,
+    onSearch: (String?) -> Unit // Nouvelle callback pour filtrer par type Google
 ) {
-    // Filtrage par distance
-    val filteredActivities = remember(availableActivities, itinerary) {
-        if (itinerary.latitude != null && itinerary.longitude != null) {
-            availableActivities.map { act ->
-                val dist = if (act.latitude != null && act.longitude != null) {
-                    calculateDistance(itinerary.latitude, itinerary.longitude, act.latitude, act.longitude)
-                } else {
-                    Double.MAX_VALUE
-                }
-                act to dist
-            }.sortedBy { it.second }
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedType by remember { mutableStateOf<String?>(null) }
+
+    val categoryMap = mapOf(
+        null to "Tous",
+        "tourist_attraction" to "Attractions",
+        "museum" to "Musées",
+        "park" to "Parcs",
+        "restaurant" to "Restos",
+        "cafe" to "Cafés",
+        "lodging" to "Hôtels"
+    )
+
+    // Filtrage LOCAL par nom (recherche textuelle)
+    val displayedActivities = remember(availableActivities, searchQuery) {
+        if (searchQuery.isBlank()) {
+            availableActivities
         } else {
-            // Si pas de coordonnées pour le parcours, on filtre par le nom de la destination
-            availableActivities.filter { it.location.equals(itinerary.destination, ignoreCase = true) }.map { it to 0.0 }
+            availableActivities.filter { it.name.contains(searchQuery, ignoreCase = true) }
         }
     }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Découvrir des activités")
+            Column {
+                Text("Rechercher une activité")
+                Spacer(modifier = Modifier.height(8.dp))
+                // Barre de recherche par nom
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Nom du lieu...") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                // Filtre par type
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(categoryMap.toList()) { (type, label) ->
+                        FilterChip(
+                            selected = selectedType == type,
+                            onClick = { 
+                                selectedType = type
+                                onSearch(type) // Déclenche une nouvelle recherche Google
+                            },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+            }
         },
         text = {
             Box(modifier = Modifier.heightIn(max = 400.dp)) {
-                if (filteredActivities.isEmpty()) {
-                    Text("Aucune activité trouvée à proximité.", modifier = Modifier.padding(16.dp))
+                if (displayedActivities.isEmpty()) {
+                    Text("Aucun résultat pour cette recherche.", modifier = Modifier.padding(16.dp))
                 } else {
                     LazyColumn {
-                        items(filteredActivities) { (activity, distance) ->
+                        items(displayedActivities) { activity ->
+                            val distance = if (itinerary.latitude != null && itinerary.longitude != null && activity.latitude != null && activity.longitude != null) {
+                                calculateDistance(itinerary.latitude, itinerary.longitude, activity.latitude, activity.longitude)
+                            } else null
+
                             ListItem(
-                                headlineContent = { Text(activity.name) },
+                                headlineContent = { Text(activity.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 supportingContent = { 
                                     Text("${activity.category} • ${if (activity.price == 0.0) "Gratuit" else "${activity.price}€"}")
                                 },
                                 trailingContent = {
-                                    if (distance > 0 && distance < Double.MAX_VALUE) {
+                                    if (distance != null) {
                                         Text("${distance.toInt()} km", style = MaterialTheme.typography.labelSmall)
                                     }
                                 },
@@ -295,7 +354,7 @@ fun AddActivityDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annuler") }
+            TextButton(onClick = onDismiss) { Text("Fermer") }
         }
     )
 }
@@ -312,13 +371,14 @@ fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): D
 }
 
 @Composable
-fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Double?, Double?, String, String) -> Unit) {
+fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String, Double?, Double?, String, String, Boolean) -> Unit) {
     var title by remember { mutableStateOf("") }
     var desc by remember { mutableStateOf("") }
     var dest by remember { mutableStateOf("") }
     var selectedLocation by remember { mutableStateOf<LatLng?>(null) }
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
+    var isSmartMode by remember { mutableStateOf(false) }
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(48.8566, 2.3522), 10f)
@@ -335,6 +395,11 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(value = startDate, onValueChange = { startDate = it }, label = { Text("Début (JJ/MM)") }, modifier = Modifier.weight(1f))
                     OutlinedTextField(value = endDate, onValueChange = { endDate = it }, label = { Text("Fin (JJ/MM)") }, modifier = Modifier.weight(1f))
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = isSmartMode, onCheckedChange = { isSmartMode = it })
+                    Text("Générer intelligemment (ajoute des activités)", style = MaterialTheme.typography.bodyMedium)
                 }
 
                 Text("Cliquez sur la carte pour définir le lieu :", style = MaterialTheme.typography.labelMedium)
@@ -379,7 +444,8 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                         selectedLocation?.latitude, 
                         selectedLocation?.longitude, 
                         startDate, 
-                        endDate
+                        endDate,
+                        isSmartMode
                     ) 
                 },
                 enabled = title.isNotBlank() && dest.isNotBlank() && selectedLocation != null

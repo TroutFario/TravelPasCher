@@ -87,4 +87,5 @@ dependencies {
     implementation(libs.play.services.cronet)
     implementation(libs.play.services.maps)
     implementation(libs.maps.compose)
+    implementation(libs.google.places)
 }

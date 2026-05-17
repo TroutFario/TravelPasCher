@@ -97,6 +97,8 @@ fun FeedScreenContent(
                     authorProfileImageUrl = post.authorProfileImageUrl,
                     isLiked = currentUserId != null && post.likedBy.contains(currentUserId),
                     likeCount = post.likedBy.size,
+                    latitude = post.latitude,
+                    longitude = post.longitude,
                     onLikeClick = { onLikeClick(post.id) },
                     onCommentClick = { onCommentClick(post.id) }
                 )

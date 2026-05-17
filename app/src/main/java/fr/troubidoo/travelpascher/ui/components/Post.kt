@@ -56,6 +56,8 @@ fun Post(
     authorProfileImageUrl: String = "",
     isLiked: Boolean = false,
     likeCount: Int = 0,
+    latitude: Double? = null,
+    longitude: Double? = null,
     onLikeClick: () -> Unit = {},
     onCommentClick: () -> Unit = {},
     onShareClick: () -> Unit = {},
@@ -124,7 +126,11 @@ fun Post(
                                 text = location,
                                 color = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.clickable {
-                                    val uri = "geo:0,0?q=$location".toUri()
+                                    val uri = if (latitude != null && longitude != null) {
+                                        "geo:$latitude,$longitude?q=$latitude,$longitude($location)".toUri()
+                                    } else {
+                                        "geo:0,0?q=$location".toUri()
+                                    }
                                     val intent = Intent(Intent.ACTION_VIEW, uri)
                                     intent.setPackage("com.google.android.apps.maps")
                                     context.startActivity(intent)
