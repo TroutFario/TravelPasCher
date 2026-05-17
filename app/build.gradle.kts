@@ -44,10 +44,6 @@ android {
     }
     
     configurations.all {
-        resolutionStrategy {
-            force("com.google.android.gms:play-services-basement:18.4.0")
-            force("com.google.android.gms:play-services-tasks:18.2.0")
-        }
         exclude(group = "org.chromium.net", module = "cronet-fallback")
         exclude(group = "org.chromium.net", module = "cronet-common")
         exclude(group = "org.chromium.net", module = "cronet-api")
