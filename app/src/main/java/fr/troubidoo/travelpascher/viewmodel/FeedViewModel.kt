@@ -33,6 +33,7 @@ data class UiPost(
     val imageUrl: String,
     val createdAt: Long,
     val likedBy: List<String> = emptyList(),
+    val commentCount: Int = 0,
     val latitude: Double? = null,
     val longitude: Double? = null
 ) {
@@ -49,6 +50,7 @@ data class UiPost(
                     createdAt = doc.getLong("createdAt") ?: 0L,
                     likedBy = (doc.get("likedBy") as? List<*>)?.filterIsInstance<String>()
                         ?: emptyList(),
+                    commentCount = doc.getLong("commentCount")?.toInt() ?: 0,
                     latitude = (doc.get("latitude") as? Number)?.toDouble(),
                     longitude = (doc.get("longitude") as? Number)?.toDouble()
                 )
@@ -257,6 +259,13 @@ class FeedViewModel : ViewModel() {
 
     private val _globalActivities = MutableStateFlow<List<UiActivity>>(emptyList())
     val globalActivities = _globalActivities.asStateFlow()
+
+    // Suggestions de recherche Autocomplete
+    private val _searchSuggestions = MutableStateFlow<List<com.google.android.libraries.places.api.model.AutocompletePrediction>>(emptyList())
+    val searchSuggestions = _searchSuggestions.asStateFlow()
+
+    private val _isUsernameAvailable = MutableStateFlow<Boolean?>(null)
+    val isUsernameAvailable = _isUsernameAvailable.asStateFlow()
 
     private var commentsListener: com.google.firebase.firestore.ListenerRegistration? = null
     private var itinerariesListener: com.google.firebase.firestore.ListenerRegistration? = null
@@ -467,6 +476,7 @@ class FeedViewModel : ViewModel() {
     }
 
     fun updateUserProfile(
+        username: String,
         firstName: String,
         lastName: String,
         bio: String,
@@ -478,7 +488,8 @@ class FeedViewModel : ViewModel() {
         val user = auth.currentUser ?: return
         viewModelScope.launch {
             try {
-                val updates = hashMapOf(
+                val updates = hashMapOf<String, Any>(
+                    "username" to username,
                     "firstName" to firstName,
                     "lastName" to lastName,
                     "bio" to bio,
@@ -610,8 +621,11 @@ class FeedViewModel : ViewModel() {
 
         viewModelScope.launch {
             try {
-                db.collection("posts").document(postId).collection("comments").add(commentData)
-                    .await()
+                val postRef = db.collection("posts").document(postId)
+                db.runTransaction { transaction ->
+                    transaction.set(postRef.collection("comments").document(), commentData)
+                    transaction.update(postRef, "commentCount", FieldValue.increment(1))
+                }.await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -632,8 +646,11 @@ class FeedViewModel : ViewModel() {
     fun deleteComment(postId: String, commentId: String) {
         viewModelScope.launch {
             try {
-                db.collection("posts").document(postId).collection("comments").document(commentId)
-                    .delete().await()
+                val postRef = db.collection("posts").document(postId)
+                db.runTransaction { transaction ->
+                    transaction.delete(postRef.collection("comments").document(commentId))
+                    transaction.update(postRef, "commentCount", FieldValue.increment(-1))
+                }.await()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -668,6 +685,34 @@ class FeedViewModel : ViewModel() {
     fun clearSelectedUserProfile() {
         _selectedUserProfile.value = null
         _selectedUserPosts.value = emptyList()
+    }
+
+    fun checkUsernameAvailability(username: String) {
+        if (username.length < 3) {
+            _isUsernameAvailable.value = null
+            return
+        }
+        
+        // Si c'est le pseudo actuel, il est disponible
+        if (username == _userData.value?.username) {
+            _isUsernameAvailable.value = true
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                val snapshot = db.collection("users")
+                    .whereEqualTo("username", username)
+                    .get().await()
+                _isUsernameAvailable.value = snapshot.isEmpty
+            } catch (e: Exception) {
+                _isUsernameAvailable.value = null
+            }
+        }
+    }
+
+    fun resetUsernameAvailability() {
+        _isUsernameAvailable.value = null
     }
 
     fun toggleFollow(targetUserId: String) {

@@ -1,6 +1,7 @@
 package fr.troubidoo.travelpascher.ui.screen
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
@@ -18,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -25,8 +27,10 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import fr.troubidoo.travelpascher.R
 import fr.troubidoo.travelpascher.viewmodel.FeedViewModel
+import kotlinx.coroutines.delay
 
 data class SettingsUiState(
+    val username: String = "",
     val firstName: String = "",
     val lastName: String = "",
     val bio: String = "",
@@ -38,16 +42,31 @@ data class SettingsUiState(
 
 @Composable
 fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
+
     val userData by viewModel.userData.collectAsState()
+    val isUsernameAvailable by viewModel.isUsernameAvailable.collectAsState()
+
     var settingsState by remember(userData) {
         mutableStateOf(
             SettingsUiState(
+                username = userData?.username ?: "",
                 firstName = userData?.firstName ?: "",
                 lastName = userData?.lastName ?: "",
                 bio = userData?.bio ?: "",
                 preferredCategories = userData?.preferredCategories ?: emptyList()
             )
         )
+    }
+    
+    // Check username availability with debounce
+    LaunchedEffect(settingsState.username) {
+        if (settingsState.username != userData?.username) {
+            delay(500)
+            viewModel.checkUsernameAvailability(settingsState.username)
+        } else {
+            viewModel.resetUsernameAvailability()
+        }
     }
     
     val successMessage = stringResource(R.string.profile_updated_success)
@@ -125,6 +144,37 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        val usernameColor = when {
+            settingsState.username == userData?.username -> MaterialTheme.colorScheme.outline
+            isUsernameAvailable == true -> Color(0xFF4CAF50) // Vert
+            isUsernameAvailable == false -> MaterialTheme.colorScheme.error
+            else -> MaterialTheme.colorScheme.outline
+        }
+
+        OutlinedTextField(
+            value = settingsState.username,
+            onValueChange = { settingsState = settingsState.copy(username = it) },
+            label = { Text(stringResource(R.string.username_label)) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !settingsState.isLoading,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = usernameColor,
+                unfocusedBorderColor = usernameColor,
+                focusedLabelColor = usernameColor,
+                unfocusedLabelColor = usernameColor
+            ),
+            supportingText = {
+                if (settingsState.username != userData?.username && isUsernameAvailable != null) {
+                    Text(
+                        text = if (isUsernameAvailable == true) "Pseudo disponible" else "Pseudo déjà utilisé",
+                        color = usernameColor
+                    )
+                }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
             value = settingsState.firstName,
@@ -209,6 +259,7 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
             onClick = {
                 settingsState = settingsState.copy(isLoading = true)
                 viewModel.updateUserProfile(
+                    username = settingsState.username,
                     firstName = settingsState.firstName,
                     lastName = settingsState.lastName,
                     bio = settingsState.bio,
@@ -218,8 +269,10 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                         settingsState = settingsState.copy(
                             isLoading = false,
                             message = successMessage,
-                            selectedImageUri = null // Reset selection after success
+                            selectedImageUri = null
                         )
+                        // On quitte l'écran après un court délai pour que l'utilisateur voit le message de succès
+                        onBack()
                     },
                     onError = {
                         settingsState = settingsState.copy(isLoading = false, message = it)
@@ -227,7 +280,11 @@ fun SettingsScreen(viewModel: FeedViewModel, onBack: () -> Unit) {
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !settingsState.isLoading && settingsState.firstName.isNotBlank() && settingsState.lastName.isNotBlank()
+            enabled = !settingsState.isLoading && 
+                      settingsState.firstName.isNotBlank() && 
+                      settingsState.lastName.isNotBlank() &&
+                      settingsState.username.isNotBlank() &&
+                      (settingsState.username == userData?.username || isUsernameAvailable == true)
         ) {
             if (settingsState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)

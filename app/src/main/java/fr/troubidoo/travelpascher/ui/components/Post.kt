@@ -56,6 +56,7 @@ fun Post(
     authorProfileImageUrl: String = "",
     isLiked: Boolean = false,
     likeCount: Int = 0,
+    commentCount: Int = 0,
     latitude: Double? = null,
     longitude: Double? = null,
     onLikeClick: () -> Unit = {},
@@ -217,11 +218,20 @@ fun Post(
                         }
                     }
 
-                    IconButton(onClick = onCommentClick) {
-                        Icon(
-                            painter = painterResource(R.drawable.outline_chat_24),
-                            contentDescription = stringResource(R.string.comment)
-                        )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = onCommentClick) {
+                            Icon(
+                                painter = painterResource(R.drawable.outline_chat_24),
+                                contentDescription = stringResource(R.string.comment)
+                            )
+                        }
+                        if (commentCount > 0) {
+                            Text(
+                                text = commentCount.toString(),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
                     }
 
                     IconButton(onClick = onShareClick) {

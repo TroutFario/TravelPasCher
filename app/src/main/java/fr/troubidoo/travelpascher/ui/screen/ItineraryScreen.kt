@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
@@ -380,6 +382,9 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
     var startDate by remember { mutableStateOf("") }
     var endDate by remember { mutableStateOf("") }
     var isSmartMode by remember { mutableStateOf(false) }
+    var isMapInteracting by remember { mutableStateOf(false) }
+
+    val scrollState = rememberScrollState()
 
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(48.8566, 2.3522), 10f)
@@ -389,7 +394,10 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
         onDismissRequest = onDismiss,
         title = { Text("Nouveau Parcours") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.verticalScroll(scrollState, enabled = !isMapInteracting)
+            ) {
                 OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Titre du voyage") }, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(value = dest, onValueChange = { dest = it }, label = { Text("Destination (Ville)") }, modifier = Modifier.fillMaxWidth())
                 
@@ -409,6 +417,14 @@ fun AddItineraryDialog(onDismiss: () -> Unit, onConfirm: (String, String, String
                     .fillMaxWidth()
                     .height(250.dp)
                     .clip(RoundedCornerShape(8.dp))
+                    .pointerInput(Unit) {
+                        awaitPointerEventScope {
+                            while (true) {
+                                val event = awaitPointerEvent(PointerEventPass.Initial)
+                                isMapInteracting = event.changes.any { it.pressed }
+                            }
+                        }
+                    }
                 ) {
                     GoogleMap(
                         modifier = Modifier.fillMaxSize(),

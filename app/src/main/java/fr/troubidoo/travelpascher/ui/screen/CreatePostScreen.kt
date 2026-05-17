@@ -19,6 +19,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,6 +56,7 @@ private fun CreatePostContent(
     onSearch: (LatLng) -> Unit
 ) {
     val scrollState = rememberScrollState()
+    var isMapInteracting by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(LatLng(48.8566, 2.3522), 5f)
@@ -65,7 +68,7 @@ private fun CreatePostContent(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
-            .verticalScroll(scrollState),
+            .verticalScroll(scrollState, enabled = !isMapInteracting),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -135,6 +138,14 @@ private fun CreatePostContent(
             .height(250.dp)
             .clip(RoundedCornerShape(12.dp))
             .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp))
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        isMapInteracting = event.changes.any { it.pressed }
+                    }
+                }
+            }
         ) {
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
