@@ -89,5 +89,4 @@ dependencies {
 
     implementation(libs.play.services.safetynet)
     implementation(libs.play.services.cronet)
-    implementation(libs.recaptcha)
 }

@@ -148,6 +148,9 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
                 profileState = profileState.copy(selectedPost = null)
             },
             onCommentClick = {
+                // On ferme d'abord le dialogue de détail pour éviter le blocage UI
+                profileState = profileState.copy(selectedPost = null)
+                // Puis on ouvre les commentaires
                 selectedPostIdForComments = post.id
                 viewModel.listenToComments(post.id)
             }
@@ -159,6 +162,7 @@ fun ProfileScreen(viewModel: FeedViewModel, onSettingsClick: () -> Unit) {
             comments = comments,
             currentUserId = currentUser?.uid,
             onDismiss = {
+                selectedPostIdForComments = null
                 viewModel.stopListeningToComments()
             },
             onSendComment = { text: String -> viewModel.addComment(postId, text) },

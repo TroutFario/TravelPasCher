@@ -55,6 +55,7 @@ fun FeedScreen(viewModel: FeedViewModel) {
             comments = comments,
             currentUserId = currentUser?.uid,
             onDismiss = {
+                selectedPostIdForComments = null
                 viewModel.stopListeningToComments()
             },
             onSendComment = { text: String -> viewModel.addComment(postId, text) },
