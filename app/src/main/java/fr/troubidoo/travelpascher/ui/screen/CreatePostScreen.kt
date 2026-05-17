@@ -142,7 +142,7 @@ private fun CreatePostContent(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
-                        event.changes.any { it.pressed }
+                        isMapInteracting = event.changes.any { it.pressed }
                     }
                 }
             }

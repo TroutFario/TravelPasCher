@@ -234,7 +234,19 @@ fun Post(
                         }
                     }
 
-                    IconButton(onClick = onShareClick) {
+                    IconButton(onClick = {
+                        val sendIntent: Intent = Intent().apply {
+                            action = Intent.ACTION_SEND
+                            putExtra(
+                                Intent.EXTRA_TEXT,
+                                "Regarde ce magnifique voyage à $location partagé par $username sur TravelPasCher ! 🌍\n\n$imageUrl"
+                            )
+                            type = "text/plain"
+                        }
+                        val shareIntent = Intent.createChooser(sendIntent, null)
+                        context.startActivity(shareIntent)
+                        onShareClick()
+                    }) {
                         Icon(
                             painter = painterResource(R.drawable.outline_share_24),
                             contentDescription = stringResource(R.string.share)
